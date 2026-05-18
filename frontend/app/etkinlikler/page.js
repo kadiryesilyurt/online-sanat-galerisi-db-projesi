@@ -1,37 +1,56 @@
+"use client";
+import { useState, useEffect } from "react";
+
+// Veritabanı bağlanana kadar veya backend kapalıyken çalışacak sahte (mock) verilerimiz kanka
+const mockEvents = [
+    {
+        id: 1,
+        title: "Temel Yağlı Boya Atölyesi",
+        date: "25 Mayıs 2026",
+        time: "14:00 - 17:00",
+        quota: 15,
+        price: 500,
+        description: "Yeni başlayanlar için temel yağlı boya teknikleri, renk teorisi ve fırça kullanımları üzerine uygulamalı atölye çalışması.",
+        organizer: "Ahmet Yılmaz"
+    },
+    {
+        id: 2,
+        title: "Dijital Sanata Giriş",
+        date: "28 Mayıs 2026",
+        time: "18:00 - 20:00",
+        quota: 20,
+        price: 350,
+        description: "Tablet ve dijital CLI çizim programları kullanarak karakter tasarımı ve konsept sanatının temelleri.",
+        organizer: "Zeynep Kaya"
+    },
+    {
+        id: 3,
+        title: "Seramik Heykel Şekillendirme",
+        date: "02 Haziran 2026",
+        time: "13:00 - 16:00",
+        quota: 10,
+        price: 750,
+        description: "Kil ile 3 boyutlu form yaratma, doku verme ve temel seramik şekillendirme yöntemleri.",
+        organizer: "Caner Erol"
+    }
+];
+
 export default function EtkinliklerPage() {
-    // Veritabanı bağlanana kadar arayüzü test etmek için mock (sahte) verimiz.
-    const events = [
-        {
-            id: 1,
-            title: "Temel Yağlı Boya Atölyesi",
-            date: "25 Mayıs 2026",
-            time: "14:00 - 17:00",
-            quota: 15,
-            price: 500,
-            description: "Yeni başlayanlar için temel yağlı boya teknikleri, renk teorisi ve fırça kullanımları üzerine uygulamalı atölye çalışması.",
-            organizer: "Ahmet Yılmaz"
-        },
-        {
-            id: 2,
-            title: "Dijital Sanata Giriş",
-            date: "28 Mayıs 2026",
-            time: "18:00 - 20:00",
-            quota: 20,
-            price: 350,
-            description: "Tablet ve dijital çizim programları kullanarak karakter tasarımı ve konsept sanatının temelleri.",
-            organizer: "Zeynep Kaya"
-        },
-        {
-            id: 3,
-            title: "Seramik Heykel Şekillendirme",
-            date: "02 Haziran 2026",
-            time: "13:00 - 16:00",
-            quota: 10,
-            price: 750,
-            description: "Kil ile 3 boyutlu form yaratma, doku verme ve temel seramik şekillendirme yöntemleri.",
-            organizer: "Caner Erol"
-        }
-    ];
+    // Kadir'in backend'inden gelecek veriler için state oluşturduk, varsayılan olarak mock verileri atadık
+    const [events, setEvents] = useState(mockEvents);
+
+    // Sayfa açıldığında Kadir'in Python backend'ine istek atan fonksiyon
+    useEffect(() => {
+        fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/etkinlikler`)
+            .then((res) => res.json())
+            .then((data) => {
+                // Eğer backend'den veri başarılı geldiyse listeyi güncelle
+                if (Array.isArray(data) && data.length > 0) {
+                    setEvents(data);
+                }
+            })
+            .catch((err) => console.error("Kadir'in backend'inden etkinlikler çekilemedi, mock veriler devrede:", err));
+    }, []);
 
     return (
         <div className="container mx-auto px-4 py-8">
