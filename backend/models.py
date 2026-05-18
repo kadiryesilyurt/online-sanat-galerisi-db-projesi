@@ -17,7 +17,6 @@ class Artist(Base):
     artist_id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     biography = Column(Text)
-    
     artworks = relationship("Artwork", back_populates="artist")
 
 class Artwork(Base):
@@ -30,7 +29,6 @@ class Artwork(Base):
     image_url = Column(String(255))
     category = Column(String(50))
     stock_status = Column(Integer, default=1)
-
     artist = relationship("Artist", back_populates="artworks")
 
 class Event(Base):
@@ -51,4 +49,20 @@ class Reservation(Base):
     event_id = Column(Integer, ForeignKey("events.event_id"))
     participant_count = Column(Integer, nullable=False)
     reservation_status = Column(String(20), default="active")
+    created_at = Column(TIMESTAMP, server_default=func.now())
+
+class Favorite(Base):
+    __tablename__ = "favorites"
+    user_id = Column(Integer, ForeignKey("users.user_id"), primary_key=True)
+    artwork_id = Column(Integer, ForeignKey("artworks.artwork_id"), primary_key=True)
+    added_at = Column(TIMESTAMP, server_default=func.now())
+
+class Review(Base):
+    __tablename__ = "reviews"
+    review_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"))
+    item_type = Column(String(20), nullable=False)
+    item_id = Column(Integer, nullable=False)
+    rating = Column(Integer)
+    comment = Column(Text)
     created_at = Column(TIMESTAMP, server_default=func.now())

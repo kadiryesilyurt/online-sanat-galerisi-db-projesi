@@ -7,8 +7,7 @@ router = APIRouter(prefix="/artworks", tags=["Artworks"])
 
 @router.get("/", response_model=list[schemas.ArtworkResponse])
 def get_artworks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    artworks = db.query(models.Artwork).offset(skip).limit(limit).all()
-    return artworks
+    return db.query(models.Artwork).offset(skip).limit(limit).all()
 
 @router.get("/{artwork_id}", response_model=schemas.ArtworkResponse)
 def get_artwork(artwork_id: int, db: Session = Depends(get_db)):
