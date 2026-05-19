@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-
+import toast from 'react-hot-toast';
 export default function EtkinlikDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -67,13 +67,50 @@ export default function EtkinlikDetailPage() {
     const handleReservation = async () => {
         const token = localStorage.getItem("token");
         if (!token || !userId) {
-            alert("Rezervasyon yapmak için önce giriş yapmalısın kanka!");
-            router.push("/auth?mode=login");
+            toast((t) => (
+                <div className="flex flex-col gap-2 p-1">
+                    <p className="font-medium text-sm">Rezervasyon yapabilmek için önce giriş yapmalısınız.</p>
+                    <div className="flex justify-end gap-2">
+                        <button
+                            onClick={() => {
+                                toast.dismiss(t.id);
+                                router.push("/auth?mode=login");
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition"
+                        >
+                            Giriş Yap
+                        </button>
+                        <button
+                            onClick={() => toast.dismiss(t.id)}
+                            className="px-3 py-1 bg-gray-200 text-gray-800 text-xs rounded hover:bg-gray-300 transition"
+                        >
+                            Vazgeç
+                        </button>
+                    </div>
+                </div>
+            ), {
+                duration: 5000,
+                position: 'top-center',
+                style: {
+                    marginTop: '30vh',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+                },
+                icon: '🔐'
+            });
             return;
         }
 
         if (!reservationDate || !reservationTime) {
-            alert("Lütfen tarih ve saat seç kanka!");
+            toast.error('Lütfen rezervasyon için tarih ve saat seçimi yapın.', {
+                duration: 3000,
+                style: {
+                    background: '#F59E0B', // Uyarılar için Amber/Sarı tonu
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '📅', // Tarih ve saat seçimi temalı ikon
+            });
             return;
         }
 
@@ -95,14 +132,40 @@ export default function EtkinlikDetailPage() {
             });
 
             if (response.ok) {
-                alert("🎉 Harika! Rezervasyonun başarıyla oluşturuldu.");
+                toast.success('Rezervasyonunuz başarıyla oluşturuldu.', {
+                    duration: 4000,
+                    style: {
+                        background: '#3B82F6', // Rezervasyonlar için "Mavi" kurumsal bir ton
+                        color: '#fff',
+                        borderRadius: '10px',
+                        border: '1px solid #2563EB',
+                    },
+                    icon: '📅', // Etkinlik/Rezervasyon temasına uygun ikon
+                });
                 router.push("/panel");
             } else {
                 const errorData = await response.json();
-                alert(`Hata: ${errorData.detail || "Bir şeyler ters gitti."}`);
+                toast.error(errorData.detail || "İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.", {
+                    duration: 4000,
+                    style: {
+                        background: '#EF4444',
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '❌',
+                });
             }
         } catch (error) {
-            alert("Sunucuya ulaşılamadı.");
+            toast.error('Sunucu ile bağlantı kurulamadı. Lütfen internetinizi veya sunucunun aktif olduğunu kontrol edin.', {
+                duration: 5000, // Hata mesajı olduğu için kullanıcının okuması için biraz daha uzun kalsın
+                style: {
+                    background: '#EF4444', // Hata için canlı kırmızı
+                    color: '#fff',
+                    borderRadius: '10px',
+                    border: '1px solid #B91C1C',
+                },
+                icon: '🌐', // Bağlantı/Sunucu temalı ikon
+            });
         } finally {
             setIsSubmitting(false);
         }

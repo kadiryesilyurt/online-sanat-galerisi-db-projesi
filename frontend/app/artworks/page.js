@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-
+import toast from 'react-hot-toast';
 export default function ArtworksPage() {
     const [artworks, setArtworks] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -41,12 +41,36 @@ export default function ArtworksPage() {
             });
 
             if (response.ok) {
-                alert("🎨 Eser başarıyla favorilerine eklendi kanka!");
+                toast.success('Eser başarıyla favorilerinize eklendi.', {
+                    duration: 3000,
+                    style: {
+                        background: '#10B981', // Başarı için yeşil tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '🎨', // Eser temasına uygun ikon
+                });
             } else {
-                alert("Eklenemedi, bir şeyler ters gitti.");
+                toast.error('İşlem gerçekleştirilemedi. Lütfen tekrar deneyiniz.', {
+                    duration: 3500,
+                    style: {
+                        background: '#EF4444', // Hata için canlı kırmızı
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '⚠️',
+                });
             }
         } catch (error) {
-            alert("Sunucuya ulaşılamadı.");
+            toast.error('Sunucu ile iletişim kurulamadı. Lütfen ağ bağlantınızı kontrol edip tekrar deneyin.', {
+                duration: 4000,
+                style: {
+                    background: '#EF4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '🔌',
+            });
         }
     };
 

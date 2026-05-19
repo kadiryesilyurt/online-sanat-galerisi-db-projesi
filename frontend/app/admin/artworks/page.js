@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-
+import toast from 'react-hot-toast';
 export default function AdminArtworksPage() {
     const [artworks, setArtworks] = useState([]);
     const [artists, setArtists] = useState([]);
@@ -60,12 +60,30 @@ export default function AdminArtworksPage() {
                 })
             });
             if (res.ok) {
-                alert("Eser eklendi!");
+                toast.success('Eser başarıyla listeye eklendi.', {
+                    duration: 3000,
+                    style: {
+                        background: '#10B981', // Başarı için yeşil tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '✅',
+                });
                 setIsModalOpen(false);
                 setFormData({ title: "", artist_id: "", price: "", image_url: "", category: "", stock_status: 1, description: "" });
                 fetchArtworks();
             }
-        } catch (error) { alert("Hata oluştu."); }
+        } catch (error) {
+            toast.error('Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.', {
+                duration: 3000,
+                style: {
+                    background: '#EF4444', // Hata için canlı kırmızı
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '❌',
+            });
+        }
     };
 
     const handleAddArtist = async (e) => {
@@ -78,14 +96,40 @@ export default function AdminArtworksPage() {
                 body: JSON.stringify(artistForm)
             });
             if (res.ok) {
-                alert("Sanatçı başarıyla eklendi!");
+                toast.success('Sanatçı başarıyla kaydedildi.', {
+                    duration: 3000,
+                    style: {
+                        background: '#10B981', // Başarı için yeşil tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '👨‍🎨', // Sanatçı temalı ikon
+                });
                 setIsArtistModalOpen(false); // Modalı kapat
                 setArtistForm({ name: "", biography: "" })
                 fetchArtists(); // 🚀 Dropdown'u güncelle
             } else {
-                alert("Sanatçı eklenemedi.");
+                toast.error('Sanatçı kaydedilemedi. Lütfen bilgileri kontrol edip tekrar deneyin.', {
+                    duration: 3500,
+                    style: {
+                        background: '#EF4444', // Hata için canlı kırmızı
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '🚫',
+                });
             }
-        } catch (error) { alert("Sunucu hatası."); }
+        } catch (error) {
+            toast.error('Sunucu tarafında bir hata oluştu. Lütfen daha sonra tekrar deneyin.', {
+                duration: 4000,
+                style: {
+                    background: '#EF4444', // Hata için canlı kırmızı
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '💻', // Sunucu/Sistem temalı ikon
+            });
+        }
     };
 
     const handleDelete = async (id) => {

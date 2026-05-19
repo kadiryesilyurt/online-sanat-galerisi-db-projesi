@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import CheckoutModal from "@/components/CheckoutModal";
+import toast from 'react-hot-toast';
 
 export default function ArtworkDetailPage() {
     const params = useParams();
@@ -81,7 +82,16 @@ export default function ArtworkDetailPage() {
             });
 
             if (response.ok) {
-                alert("🎉 Tebrikler! Eser başarıyla satın alındı.");
+                toast.success('Harika bir seçim! Eser başarıyla satın alındı.', {
+                    duration: 4000, // Satın alma olduğu için biraz daha uzun kalsın
+                    style: {
+                        background: '#10B981', // Başarı için yeşil tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                        border: '1px solid #059669',
+                    },
+                    icon: '🖼️', // Eser temasına uygun ikon
+                });
                 setIsModalOpen(false);
                 router.push("/panel"); // Siparişlerime yönlendir
             } else {

@@ -5,6 +5,7 @@ from database import get_db
 import models, schemas, security
 
 router = APIRouter(prefix="/api/artists", tags=["Artists"])
+
 @router.get("/", response_model=list[schemas.ArtistResponse])
 def get_all_artists(db: Session = Depends(get_db)):
     # Veritabanındaki tüm sanatçıları getiriyoruz

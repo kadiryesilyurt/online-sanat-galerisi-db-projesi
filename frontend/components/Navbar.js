@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Link from 'next/link';
 import { useRouter } from "next/navigation";
+import toast from 'react-hot-toast';
 
 export default function Navbar() {
     const router = useRouter();
@@ -15,12 +16,25 @@ export default function Navbar() {
         }
     }, []);
 
-    // Oturumu güvenle kapatıp ana sayfaya fırlatma fonksiyonu
     const handleLogout = () => {
+        console.log("Çıkış fonksiyonu tetiklendi");
         localStorage.removeItem("token");
         setIsLoggedIn(false);
-        alert("Oturum başarıyla kapatıldı kanka!");
-        window.location.href = "/"; // Tüm state'leri temizlemek için tam sayfa yenileme yapıyoruz
+
+        toast.success('Oturum başarıyla kapatıldı!', {
+            duration: 2000, // 2 saniye ekranda kalsın
+            style: {
+                background: '#333',
+                color: '#fff',
+                borderRadius: '10px',
+            },
+            icon: '👋',
+        });
+
+        // Sayfayı hemen değil, toast mesajı göründükten sonra yönlendir
+        setTimeout(() => {
+            window.location.href = "/";
+        }, 1500); // 1.5 saniye sonra yönlendir
     };
 
     return (

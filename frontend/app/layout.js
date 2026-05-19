@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import "./globals.css";
+import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
   title: "Online Sanat Galerisi",
@@ -10,7 +11,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="tr">
       <body className="bg-gray-50 min-h-screen flex flex-col antialiased">
-        {/* Navbar'ı buraya ekledik, artık tüm sayfalarda en üstte çıkacak */}
+        {/* Bildirimlerin her sayfada çalışması için Toaster burada */}
+        <Toaster position="top-center" reverseOrder={false} />
+
+        {/* Navbar her sayfada en üstte */}
         <Navbar />
 
         <main className="flex-grow">

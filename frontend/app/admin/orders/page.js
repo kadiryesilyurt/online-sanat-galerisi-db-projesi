@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-
+import toast from 'react-hot-toast';
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -43,13 +43,37 @@ export default function AdminOrdersPage() {
             });
 
             if (res.ok) {
-                alert("Sipariş durumu güncellendi!");
+                toast.success('Sipariş durumu başarıyla güncellendi.', {
+                    duration: 3000,
+                    style: {
+                        background: '#10B981', // Başarı için yeşil tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '✅', // Durum onay ikonu
+                });
                 fetchAllOrders(); // Tabloyu yenile
             } else {
-                alert("Güncelleme başarısız oldu.");
+                toast.error('Güncelleme işlemi gerçekleştirilemedi. Lütfen bilgilerinizi kontrol edip tekrar deneyin.', {
+                    duration: 4000,
+                    style: {
+                        background: '#EF4444', // Hata için canlı kırmızı
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '⚠️',
+                });
             }
         } catch (error) {
-            alert("Sunucu hatası.");
+            toast.error('Sunucu tarafında bir hata oluştu. Lütfen daha sonra tekrar deneyin.', {
+                duration: 4000,
+                style: {
+                    background: '#EF4444', // Hata için canlı kırmızı
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '💻', // Sunucu/Sistem temalı ikon
+            });
         }
     };
 
@@ -90,10 +114,10 @@ export default function AdminOrdersPage() {
                                         value={order.status}
                                         onChange={(e) => handleStatusChange(order.order_id, e.target.value)}
                                         className={`px-3 py-1.5 rounded-lg text-sm font-bold border outline-none cursor-pointer transition-colors ${order.status === "Ödendi" ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                order.status === "Hazırlanıyor" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                                    order.status === "Kargoya Verildi" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                                                        order.status === "Teslim Edildi" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
-                                                            "bg-red-50 text-red-700 border-red-200"
+                                            order.status === "Hazırlanıyor" ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                                order.status === "Kargoya Verildi" ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                                    order.status === "Teslim Edildi" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                                                        "bg-red-50 text-red-700 border-red-200"
                                             }`}
                                     >
                                         <option value="Ödendi">Ödendi</option>

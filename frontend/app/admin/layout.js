@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "./components/Sidebar";
+import toast from 'react-hot-toast';
 
 export default function AdminLayout({ children }) {
     const router = useRouter();
@@ -28,7 +29,15 @@ export default function AdminLayout({ children }) {
                     if (userData.is_admin === true) {
                         setIsAuthorized(true); // Patron geldi, kapıları aç!
                     } else {
-                        alert("Bu sayfaya erişim yetkiniz yok!");
+                        toast.error('Bu sayfaya erişim yetkiniz bulunmamaktadır.', {
+                            duration: 3500,
+                            style: {
+                                background: '#EF4444', // Hata için canlı kırmızı
+                                color: '#fff',
+                                borderRadius: '10px',
+                            },
+                            icon: '🚫', // Yetkisiz erişim temalı ikon
+                        });
                         router.push("/"); // Normal kullanıcıyı anasayfaya kovala
                     }
                 } else {

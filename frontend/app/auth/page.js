@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation"; // useRouter eklendi kanka!
+import { useSearchParams, useRouter } from "next/navigation";
+import toast from 'react-hot-toast';
 
 const bgImages = [
     "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=1200&auto=format&fit=crop",
@@ -13,26 +14,27 @@ const bgImages = [
 
 function AuthForm() {
     const searchParams = useSearchParams();
-    const router = useRouter(); // Yönlendirme için motoru çalıştırdık
+    const router = useRouter();
     const mode = searchParams.get("mode");
 
-    const [isLogin, setIsLogin] = useState(true);
+    // GÖRÜNÜM KONTROLÜ: 'login', 'signup', 'forgot-password', 'verify-code', 'reset-password'
+    const [view, setView] = useState("login");
     const [currentBg, setCurrentBg] = useState(0);
     const [prevBg, setPrevBg] = useState(0);
-    const [loading, setLoading] = useState(false); // Butonu disable etmek için state ekledim
+    const [loading, setLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         firstName: "",
         lastName: "",
         email: "",
-        password: ""
+        password: "",
+        code: "",          // Onay kodu için
+        newPassword: ""    // Şifre sıfırlama için
     });
 
+    // Görsel Slider Mantığı (Sabit Kaldı)
     useEffect(() => {
-        bgImages.forEach((src) => {
-            const img = new Image();
-            img.src = src;
-        });
+        bgImages.forEach((src) => { const img = new Image(); img.src = src; });
     }, []);
 
     useEffect(() => {
@@ -43,9 +45,10 @@ function AuthForm() {
         return () => clearInterval(interval);
     }, [currentBg]);
 
+    // URL'den gelen mode'a göre görünümü ayarla
     useEffect(() => {
-        if (mode === "signup") setIsLogin(false);
-        else if (mode === "login") setIsLogin(true);
+        if (mode === "signup") setView("signup");
+        else setView("login");
     }, [mode]);
 
     const handleInputChange = (e) => {
@@ -53,66 +56,86 @@ function AuthForm() {
         setFormData((prev) => ({ ...prev, [name]: value }));
     };
 
-    // İŞTE BURASI TAMAMEN KADİR'İN BACKEND'İNE GÖRE YENİDEN YAZILDI 🚀
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
 
-        // Adresleri Kadir'in routerlarına göre düzelttik
-        const endpoint = isLogin ? "/api/users/login" : "/api/users/register";
-        const url = `${process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"}${endpoint}`;
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+        let endpoint = "";
+        let options = { method: "POST", headers: {} };
 
         try {
-            let response;
-
-            if (isLogin) {
-                // GİRİŞ YAPMA: FastAPI OAuth2 Form Data standardı bekliyor
+            if (view === "login") {
+                endpoint = "/api/users/login";
                 const loginData = new URLSearchParams();
-                loginData.append("username", formData.email); // Dikkat: email değil username olarak gidiyor!
+                loginData.append("username", formData.email);
                 loginData.append("password", formData.password);
-
-                response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: loginData.toString(),
-                });
-            } else {
-                // KAYIT OLMA: schemas.py'deki UserCreate şemasına uygun JSON
-                const registerData = {
+                options.headers["Content-Type"] = "application/x-www-form-urlencoded";
+                options.body = loginData.toString();
+            }
+            else if (view === "signup") {
+                endpoint = "/api/users/register";
+                options.headers["Content-Type"] = "application/json";
+                options.body = JSON.stringify({
                     first_name: formData.firstName,
                     last_name: formData.lastName,
                     email: formData.email,
                     password: formData.password
-                };
-
-                response = await fetch(url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(registerData),
+                });
+            }
+            else if (view === "forgot-password") {
+                // KADİR: Şifre sıfırlama kodu gönderen endpoint
+                endpoint = "/api/users/forgot-password";
+                options.headers["Content-Type"] = "application/json";
+                options.body = JSON.stringify({ email: formData.email });
+            }
+            else if (view === "verify-code") {
+                // KADİR: Kodu doğrulayan endpoint
+                endpoint = "/api/users/verify-code";
+                options.headers["Content-Type"] = "application/json";
+                options.body = JSON.stringify({ email: formData.email, code: formData.code });
+            }
+            else if (view === "reset-password") {
+                // KADİR: Yeni şifreyi kaydeden endpoint
+                endpoint = "/api/users/reset-password";
+                options.headers["Content-Type"] = "application/json";
+                options.body = JSON.stringify({
+                    email: formData.email,
+                    code: formData.code,
+                    new_password: formData.newPassword
                 });
             }
 
+            const response = await fetch(`${backendUrl}${endpoint}`, options);
             const data = await response.json();
 
             if (response.ok) {
-                if (isLogin) {
-                    // Sihirli anahtarı (Token) kaydediyoruz ki backend bizi tanısın!
+                if (view === "login") {
                     localStorage.setItem("token", data.access_token);
-                    alert("🎉 Giriş başarılı kanka! Ana sayfaya yönlendiriliyorsun.");
-
-                    // 🚀 ROUTER PUSH YERİNE BURAYI BÖYLE DEĞİŞTİRİYORUZ:
-                    window.location.href = "/"; // ✅ Sayfayı ve Navbar'ı tazeleyerek ana sayfaya fırlatır!
-                } else {
-                    alert("🎊 Kayıt başarıyla oluşturuldu! Şimdi giriş yapabilirsin.");
-                    setIsLogin(true); // Başarılı kayıttan sonra giriş ekranına geçiriyoruz
-                    setFormData({ ...formData, password: "" }); // Şifreyi temizliyoruz
+                    toast.success('Giriş işleminiz başarıyla tamamlandı.', { icon: '✅' });
+                    setTimeout(() => window.location.assign("/"), 1500);
+                }
+                else if (view === "signup") {
+                    toast.success('Kaydınız başarıyla oluşturuldu.', { icon: '🎉' });
+                    setView("login");
+                }
+                else if (view === "forgot-password") {
+                    toast.success('Onay kodu e-postanıza gönderildi.', { icon: '📧' });
+                    setView("verify-code");
+                }
+                else if (view === "verify-code") {
+                    toast.success('Kod doğrulandı. Yeni şifrenizi belirleyin.', { icon: '🔓' });
+                    setView("reset-password");
+                }
+                else if (view === "reset-password") {
+                    toast.success('Şifreniz başarıyla güncellendi.', { icon: '✨' });
+                    setView("login");
                 }
             } else {
-                alert(`Hata: ${data.detail || "Bilgileri kontrol et kanka."}`);
+                toast.error(data.detail || "İşlem gerçekleştirilemedi.", { icon: '⚠️' });
             }
         } catch (error) {
-            console.error("Backend bağlantı hatası:", error);
-            alert("Kadir'in backend sunucusuna bağlanılamadı.");
+            toast.error('Sunucu ile iletişim kurulamadı.', { icon: '🔌' });
         } finally {
             setLoading(false);
         }
@@ -120,84 +143,106 @@ function AuthForm() {
 
     return (
         <div className="fixed inset-0 w-screen h-screen z-[9999] flex items-center justify-center p-4 bg-neutral-950 overflow-y-auto antialiased font-sans">
-            {/* ARKAPLAN GÖRSELLERİ (Senin harika tasarımın) */}
-            {bgImages.map((imgUrl, index) => {
-                let opacityClass = "opacity-0 z-0";
-                let transitionClass = "transition-opacity duration-700 ease-in-out";
-                if (index === currentBg) opacityClass = "opacity-100 z-20";
-                else if (index === prevBg) { opacityClass = "opacity-100 z-10"; transitionClass = ""; }
-                return (
-                    <div
-                        key={index}
-                        className={`absolute inset-0 bg-cover bg-center contrast-115 brightness-[0.55] ${transitionClass} ${opacityClass}`}
-                        style={{ backgroundImage: `url('${imgUrl}')` }}
-                    />
-                );
-            })}
-
+            {/* ARKAPLAN GÖRSELLERİ (Aynı Kaldı) */}
+            {bgImages.map((imgUrl, index) => (
+                <div key={index} className={`absolute inset-0 bg-cover bg-center contrast-115 brightness-[0.55] transition-opacity duration-700 ease-in-out ${index === currentBg ? "opacity-100 z-20" : index === prevBg ? "opacity-100 z-10" : "opacity-0 z-0"}`} style={{ backgroundImage: `url('${imgUrl}')` }} />
+            ))}
             <div className="absolute inset-0 bg-neutral-950/30 pointer-events-none z-25"></div>
 
             {/* FORM KARTI */}
-            <div className="relative z-30 max-w-md w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] p-8 md:p-10 border border-white/20 transform transition-all duration-300">
+            <div className="relative z-30 max-w-md w-full bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] p-8 md:p-10 border border-white/20">
 
                 <div className="flex justify-between items-center mb-6">
-                    <span className="text-xs font-bold tracking-widest text-teal-600 bg-teal-50 px-2.5 py-1 rounded-md uppercase">
-                        Sanat Galerisi
-                    </span>
-                    <button type="button" onClick={() => router.push("/")} className="text-xs font-semibold text-neutral-400 hover:text-neutral-950 transition-colors cursor-pointer">
-                        ← Galeriye Dön
+                    <span className="text-xs font-bold tracking-widest text-teal-600 bg-teal-50 px-2.5 py-1 rounded-md uppercase">Sanat Galerisi</span>
+                    <button type="button" onClick={() => (view === 'login' ? router.push("/") : setView('login'))} className="text-xs font-semibold text-neutral-400 hover:text-neutral-950 transition-colors cursor-pointer">
+                        {view === 'login' ? "← Galeriye Dön" : "← Girişe Dön"}
                     </button>
                 </div>
 
                 <div className="text-center md:text-left">
                     <h2 className="text-2xl font-black text-neutral-900 tracking-tight">
-                        {isLogin ? "Oturum Açın" : "Yeni Hesap Oluşturun"}
+                        {view === "login" && "Oturum Açın"}
+                        {view === "signup" && "Yeni Hesap"}
+                        {view === "forgot-password" && "Şifremi Unuttum"}
+                        {view === "verify-code" && "Kodu Doğrula"}
+                        {view === "reset-password" && "Yeni Şifre Belirle"}
                     </h2>
                     <p className="mt-2 text-sm text-neutral-500 font-medium">
-                        {isLogin ? "Topluluğa katılmak ister misiniz? " : "Zaten üye misiniz? "}
-                        <button type="button" onClick={() => setIsLogin(!isLogin)} className="font-bold text-teal-600 hover:text-teal-700 underline underline-offset-4 transition-colors cursor-pointer">
-                            {isLogin ? "Kayıt Ol" : "Giriş Yap"}
-                        </button>
+                        {view === "login" && (
+                            <>Hesabınız yok mu? <button onClick={() => setView('signup')} className="font-bold text-teal-600 underline cursor-pointer">Kayıt Ol</button></>
+                        )}
+                        {view === "signup" && (
+                            <>Zaten üye misiniz? <button onClick={() => setView('login')} className="font-bold text-teal-600 underline cursor-pointer">Giriş Yap</button></>
+                        )}
+                        {view === "forgot-password" && "E-posta adresinize bir doğrulama kodu göndereceğiz."}
+                        {view === "verify-code" && `${formData.email} adresine gelen 6 haneli kodu girin.`}
+                        {view === "reset-password" && "Güçlü ve hatırlayabileceğiniz bir şifre seçin."}
                     </p>
                 </div>
 
                 <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
                     <div className="space-y-3.5">
-                        {!isLogin && (
+
+                        {/* KAYIT OLMA ALANLARI */}
+                        {view === "signup" && (
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Adınız</label>
-                                    <input type="text" name="firstName" required value={formData.firstName} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white transition-all duration-200" placeholder="Ahmet" />
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase">Ad</label>
+                                    <input type="text" name="firstName" required value={formData.firstName} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm" placeholder="Ahmet" />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Soyadınız</label>
-                                    <input type="text" name="lastName" required value={formData.lastName} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white transition-all duration-200" placeholder="Yılmaz" />
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase">Soyad</label>
+                                    <input type="text" name="lastName" required value={formData.lastName} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm" placeholder="Yılmaz" />
                                 </div>
                             </div>
                         )}
-                        <div>
-                            <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider">E-posta Adresi</label>
-                            <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white transition-all duration-200" placeholder="ahmet@example.com" />
-                        </div>
-                        <div>
-                            <div className="flex justify-between items-center">
-                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Şifre</label>
-                                {isLogin && <button type="button" className="text-[11px] font-semibold text-neutral-400 hover:text-neutral-900 transition-colors">Şifremi Unuttum?</button>}
+
+                        {/* E-POSTA ALANI (Reset Password hariç her yerde var) */}
+                        {view !== "reset-password" && view !== "verify-code" && (
+                            <div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase">E-posta</label>
+                                <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm" placeholder="ornek@mail.com" />
                             </div>
-                            <input type="password" name="password" required value={formData.password} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm font-semibold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 focus:bg-white transition-all duration-200" placeholder="••••••••" />
-                        </div>
+                        )}
+
+                        {/* ŞİFRE ALANI (Sadece Login ve Signup) */}
+                        {(view === "login" || view === "signup") && (
+                            <div>
+                                <div className="flex justify-between items-center">
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase">Şifre</label>
+                                    {view === "login" && (
+                                        <button type="button" onClick={() => setView('forgot-password')} className="text-[11px] font-semibold text-neutral-400 hover:text-neutral-900 transition-colors cursor-pointer">Şifremi Unuttum?</button>
+                                    )}
+                                </div>
+                                <input type="password" name="password" required value={formData.password} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm" placeholder="••••••••" />
+                            </div>
+                        )}
+
+                        {/* KOD DOĞRULAMA ALANI */}
+                        {view === "verify-code" && (
+                            <div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest">6 Haneli Kod</label>
+                                <input type="text" name="code" maxLength="6" required value={formData.code} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-4 bg-neutral-50 border border-neutral-200 rounded-xl text-center text-2xl font-black tracking-[1em]" placeholder="000000" />
+                            </div>
+                        )}
+
+                        {/* YENİ ŞİFRE ALANI */}
+                        {view === "reset-password" && (
+                            <div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase">Yeni Şifre</label>
+                                <input type="password" name="newPassword" required value={formData.newPassword} onChange={handleInputChange} className="mt-1 block w-full px-3.5 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm" placeholder="••••••••" />
+                            </div>
+                        )}
                     </div>
 
-                    {isLogin && (
-                        <div className="flex items-center pt-1">
-                            <input id="remember-me" type="checkbox" className="h-4 w-4 text-neutral-950 focus:ring-teal-500 border-neutral-300 rounded-md accent-neutral-950" />
-                            <label htmlFor="remember-me" className="ml-2 block text-xs text-neutral-400 font-medium select-none">Beni bu cihazda hatırla</label>
-                        </div>
-                    )}
-
                     <div className="pt-2">
-                        <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-md text-sm font-bold text-white bg-neutral-950 hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-neutral-950 transition-all duration-200 active:scale-[0.99] cursor-pointer disabled:bg-neutral-500">
-                            {loading ? "Bekleniyor..." : (isLogin ? "Oturum Aç" : "Kayıt Ol ve Başla")}
+                        <button type="submit" disabled={loading} className="w-full py-3 px-4 rounded-xl text-sm font-bold text-white bg-neutral-950 hover:bg-neutral-800 transition-all active:scale-[0.98] disabled:bg-neutral-500 cursor-pointer">
+                            {loading ? "İşleniyor..." : (
+                                view === "login" ? "Oturum Aç" :
+                                    view === "signup" ? "Hesap Oluştur" :
+                                        view === "forgot-password" ? "Kod Gönder" :
+                                            view === "verify-code" ? "Kodu Doğrula" : "Şifreyi Güncelle"
+                            )}
                         </button>
                     </div>
                 </form>

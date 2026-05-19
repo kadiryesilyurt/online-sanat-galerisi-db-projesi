@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation"; // Yönlendirme için ekledik
+import toast from 'react-hot-toast';
 
 export default function HomePage() {
     const router = useRouter(); // İncele butonuna basınca sayfaya gitmek için
@@ -71,7 +72,15 @@ export default function HomePage() {
             console.log("🔥 Gönderilen Token:", token);
 
             if (!token) {
-                alert("Eserleri favoriye eklemek için önce giriş yapmalısın kanka!");
+                toast.error('Eserleri favorilerinize eklemek için lütfen önce giriş yapın.', {
+                    duration: 3000,
+                    style: {
+                        background: '#3B82F6', // Profil/Giriş işlemleri için mavi tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '👤',
+                });
                 // Giriş yapmamışsa kalbi geri eski haline getiriyoruz
                 if (isCurrentlyFavorite) setFavorites([...favorites, artworkId]);
                 else setFavorites(favorites.filter(id => id !== artworkId));
@@ -111,7 +120,15 @@ export default function HomePage() {
         } else {
             // Yoksa ekle (Maksimum 3 eser sınırlandıralım ki ekran patlamasın)
             if (compareList.length >= 3) {
-                alert("Karşılaştırmak için en fazla 3 eser seçebilirsin kanka!");
+                toast.error('Karşılaştırma yapmak için en fazla 3 eser seçebilirsiniz.', {
+                    duration: 3500,
+                    style: {
+                        background: '#F59E0B', // Uyarılar için "Amber/Sarı" tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '⚖️', // Karşılaştırma/Terazi temalı ikon
+                });
                 return;
             }
             setCompareList([...compareList, artwork]);
@@ -168,8 +185,19 @@ export default function HomePage() {
                     {/* KARŞILAŞTIRMA BUTONU (Seçili Eser Varsa Aktifleşir) */}
                     <button
                         onClick={() => {
-                            if (compareList.length < 2) alert("Karşılaştırma için en az 2 eser seçmelisin kanka!");
-                            else setIsCompareModalOpen(true);
+                            if (compareList.length < 2) {
+                                toast.error('Karşılaştırma yapabilmek için en az 2 eser seçmelisiniz.', {
+                                    duration: 3000,
+                                    style: {
+                                        background: '#F59E0B',
+                                        color: '#fff',
+                                        borderRadius: '10px',
+                                    },
+                                    icon: '⚖️',
+                                });
+                            } else {
+                                setIsCompareModalOpen(true);
+                            }
                         }}
                         className={`text-xs font-bold px-4 py-2 rounded-md transition-colors cursor-pointer flex items-center gap-2 ${compareList.length > 0 ? "bg-indigo-600 text-white shadow-md hover:bg-indigo-700" : "bg-indigo-50 text-indigo-400"}`}
                     >

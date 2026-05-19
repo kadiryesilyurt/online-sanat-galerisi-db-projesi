@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-
+import toast from 'react-hot-toast';
 export default function AdminReservationsPage() {
     const [reservations, setReservations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -33,10 +33,26 @@ export default function AdminReservationsPage() {
             if (res.ok) {
                 fetchReservations(); // Onayladığında tabloyu tazele
             } else {
-                alert("İşlem başarısız.");
+                toast.error('İşlem gerçekleştirilemedi.', {
+                    duration: 3000,
+                    style: {
+                        background: '#EF4444', // Hata için canlı kırmızı
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '❌',
+                });
             }
         } catch (error) {
-            alert("Sunucu hatası.");
+            toast.error('Sunucu hatası oluştu. Lütfen daha sonra tekrar deneyin.', {
+                duration: 3500,
+                style: {
+                    background: '#EF4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '⚠️',
+            });
         }
     };
 
@@ -68,10 +84,26 @@ export default function AdminReservationsPage() {
                 fetchReservations();
             } else {
                 // 🚀 Backend'den gelen KURAL hatasını yakala (Aynı gün hatası vs.)
-                alert(data.detail || "Güncelleme başarısız.");
+                toast.error(data.detail || "Güncelleme başarısız oldu. Lütfen tekrar deneyin.", {
+                    duration: 4000,
+                    style: {
+                        background: '#EF4444',
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '❌',
+                });
             }
         } catch (error) {
-            alert("Sistem hatası.");
+            toast.error('Sistem hatası oluştu. Lütfen teknik destek ile iletişime geçin.', {
+                duration: 4000,
+                style: {
+                    background: '#EF4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '🛠️',
+            });
         }
     };
 

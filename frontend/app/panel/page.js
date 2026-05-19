@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-
+import toast from 'react-hot-toast';
 // Fallback (Sahte) Veriler
 const mockOrders = [
     {
@@ -120,10 +120,26 @@ const AccountSettings = () => {
             body: JSON.stringify(userData)
         });
         if (res.ok) {
-            alert("Profil başarıyla güncellendi!");
+            toast.success('Profil bilgileriniz başarıyla güncellendi.', {
+                duration: 3000,
+                style: {
+                    background: '#3B82F6', // Profil/Hesap işlemleri için "Mavi" tonu
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '👤', // Profil temalı ikon
+            });
             setIsEditing(false);
         } else {
-            alert("Güncelleme başarısız oldu.");
+            toast.error('Güncelleme işlemi gerçekleştirilemedi. Lütfen bilgilerinizi kontrol edip tekrar deneyin.', {
+                duration: 4000,
+                style: {
+                    background: '#EF4444', // Hata için canlı kırmızı
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '⚠️',
+            });
         }
     };
 
@@ -374,48 +390,116 @@ export default function UserPanelPage() {
     }, [router]);
 
     const handleCancelOrder = async (id) => {
-        if (!confirm("Bu siparişi iptal etmek istediğine emin misin kanka?")) return;
-        const token = localStorage.getItem("token");
+        // 1. Kullanıcıya özel modern onay kutusu
+        toast((t) => (
+            <div className="flex flex-col gap-2 p-2">
+                <p className="font-medium text-sm">Bu siparişi iptal etmek istediğinize emin misiniz?</p>
+                <div className="flex justify-end gap-2">
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id); // Onay kutusunu kapat
 
-        try {
-            const response = await fetch(`${backendUrl}/api/orders/${id}`, {
-                method: "DELETE",
-                headers: { "Authorization": `Bearer ${token}` }
+                            // 2. İptal işlemini başlat
+                            const token = localStorage.getItem("token");
+                            try {
+                                const response = await fetch(`${backendUrl}/api/orders/${id}`, {
+                                    method: "DELETE",
+                                    headers: { "Authorization": `Bearer ${token}` }
+                                });
+
+                                if (response.ok) {
+                                    toast.success('Siparişiniz başarıyla iptal edildi.', { icon: '🗑️' });
+                                    fetchOrders(); // Listeyi güncelle
+                                } else {
+                                    throw new Error("İptal işlemi başarısız.");
+                                }
+                            } catch (err) {
+                                toast.error('Sipariş iptal edilemedi. Lütfen tekrar deneyiniz.', { icon: '⚠️' });
+                            }
+                        }}
+                        className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"
+                    >
+                        Evet, İptal Et
+                    </button>
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="px-3 py-1 bg-gray-200 text-gray-800 text-xs rounded hover:bg-gray-300 transition"
+                    >
+                        Vazgeç
+                    </button>
+                </div>
+            </div>
+        ),
+            {
+                duration: Infinity,
+                position: 'top-center',
+                style: {
+                    marginTop: '30vh', // Sayfanın dikey olarak merkezine yaklaştırır
+                    padding: '16px',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+                }
             });
-            if (response.ok) {
-                alert("Siparişin iptal edildi.");
-                fetchOrders(); // Listeyi güncelle
-            }
-        } catch (err) {
-            alert("İptal edilemedi.");
-        }
     };
 
     // Ödev Maddesi 5: Rezervasyon İptal Etme Fonksiyonu
     const handleCancelReservation = async (id) => {
-        if (!confirm("Bu atölye rezervasyonunu iptal etmek istediğine emin misin kanka?")) return;
+        // 1. Kullanıcıya özel modern onay kutusu
+        toast((t) => (
+            <div className="flex flex-col gap-2 p-2">
+                <p className="font-medium text-sm">Bu atölye rezervasyonunu iptal etmek istediğinize emin misiniz?</p>
+                <div className="flex justify-end gap-2">
+                    <button
+                        onClick={async () => {
+                            toast.dismiss(t.id); // Onay kutusunu kapat
 
-        const token = localStorage.getItem("token");
-        try {
-            // 🚀 DELETE metoduyla rezervasyonu backend'den siliyoruz
-            const response = await fetch(`${backendUrl}/api/panel/reservations/${id}`, {
-                method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token}`
+                            // 2. İptal işlemini başlat
+                            const token = localStorage.getItem("token");
+                            try {
+                                const response = await fetch(`${backendUrl}/api/panel/reservations/${id}`, {
+                                    method: "DELETE",
+                                    headers: { "Authorization": `Bearer ${token}` }
+                                });
+
+                                if (response.ok) {
+                                    toast.success('Rezervasyonunuz iptal edildi ve kontenjan güncellendi.', {
+                                        icon: '✅',
+                                        style: { background: '#EF4444', color: '#fff', borderRadius: '10px' }
+                                    });
+                                    setReservations(reservations.filter(rez => rez.id !== id));
+                                } else {
+                                    throw new Error("İptal işlemi başarısız.");
+                                }
+                            } catch (err) {
+                                toast.error('İptal işlemi gerçekleştirilemedi. Lütfen tekrar deneyiniz.', {
+                                    icon: '⚠️',
+                                    style: { background: '#EF4444', color: '#fff', borderRadius: '10px' }
+                                });
+                            }
+                        }}
+                        className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"
+                    >
+                        Evet, İptal Et
+                    </button>
+                    <button
+                        onClick={() => toast.dismiss(t.id)}
+                        className="px-3 py-1 bg-gray-200 text-gray-800 text-xs rounded hover:bg-gray-300 transition"
+                    >
+                        Vazgeç
+                    </button>
+                </div>
+            </div>
+        ),
+            {
+                duration: Infinity,
+                position: 'top-center',
+                style: {
+                    marginTop: '30vh', // Ekranın ortasına yaklaştırmak için
+                    padding: '16px',
+                    borderRadius: '12px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
                 }
             });
-
-            if (response.ok) {
-                alert("Rezervasyonun iptal edildi ve kontenjan güncellendi kanka.");
-                // Ekranı yenilemeden, direkt state üzerinden listeden siliyoruz
-                setReservations(reservations.filter(rez => rez.id !== id));
-            } else {
-                alert("İptal işlemi başarısız oldu.");
-            }
-        } catch (error) {
-            console.error("Bağlantı hatası:", error);
-            alert("Sunucuyla bağlantı koptu.");
-        }
     };
     // 🚀 Ödev Maddesi 5: Rezervasyon Güncelleme Fonksiyonu
     const handleUpdateReservation = async (reservationId, newDate, newCount, newTime) => {
@@ -423,7 +507,15 @@ export default function UserPanelPage() {
 
         // Basit doğrulama: tarih seçilmiş mi ve kişi sayısı 1'den az mı?
         if (!newDate || newCount < 1) {
-            alert("Geçerli bir tarih ve kişi sayısı gir kanka!");
+            toast.error('Lütfen geçerli bir tarih ve kişi sayısı seçtiğinizden emin olun.', {
+                duration: 3000,
+                style: {
+                    background: '#F59E0B', // Uyarılar için "Amber/Sarı" tonu
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '📅', // Tarih/Etkinlik temalı ikon
+            });
             return;
         }
 
@@ -442,16 +534,42 @@ export default function UserPanelPage() {
             });
 
             if (response.ok) {
-                alert("Rezervasyon başarıyla güncellendi kanka!");
+                toast.success('Rezervasyon detaylarınız başarıyla güncellendi.', {
+                    duration: 3000,
+                    style: {
+                        background: '#1F2937', // Kontrol paneliyle uyumlu koyu gri/siyah tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                        border: '1px solid #374151',
+                    },
+                    icon: '✅',
+                });
                 setEditingRez(null); // Formu kapat
                 fetchReservations();
             } else {
                 const errorData = await response.json();
-                alert(`Hata: ${errorData.detail || "Güncelleme başarısız."}`);
+                const errorMessage = errorData.detail || "Güncelleme işlemi başarısız oldu. Lütfen tekrar deneyin.";
+                toast.error(errorMessage, {
+                    duration: 4000,
+                    style: {
+                        background: '#EF4444',
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '⚠️',
+                });
             }
         } catch (error) {
             console.error("Bağlantı hatası:", error);
-            alert("Sunucuya ulaşılamadı.");
+            toast.error('Sunucu ile iletişim kurulamadı. Lütfen ağ bağlantınızı kontrol edip tekrar deneyin.', {
+                duration: 4000,
+                style: {
+                    background: '#EF4444',
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '🔌', // Sunucu/Bağlantı temalı ikon
+            });
         }
     };
     const handleRemoveFavorite = async (artworkId) => {
@@ -465,10 +583,26 @@ export default function UserPanelPage() {
 
             if (response.ok) {
                 setFavorites(favorites.filter(f => f.artwork_id !== artworkId));
-                alert("Favorilerden kaldırıldı.");
+                toast.success('Eser favorilerinizden kaldırıldı.', {
+                    duration: 3000,
+                    style: {
+                        background: '#1F2937', // Koyu panel tonu
+                        color: '#fff',
+                        borderRadius: '10px',
+                    },
+                    icon: '💔', // Favoriden çıkarma işlemine uygun ikon
+                });
             }
         } catch (err) {
-            alert("İşlem başarısız.");
+            toast.error('İşlem gerçekleştirilemedi. Lütfen tekrar deneyiniz.', {
+                duration: 3500,
+                style: {
+                    background: '#EF4444', // Hata için canlı kırmızı
+                    color: '#fff',
+                    borderRadius: '10px',
+                },
+                icon: '❌',
+            });
         }
     };
     return (
@@ -587,7 +721,17 @@ export default function UserPanelPage() {
                                                 {/* 🔥 KARGO TAKİP BUTONU (Sadece kargoya verildiyse çıkar) 🔥 */}
                                                 {order.status === "Kargoya Verildi" && (
                                                     <button
-                                                        onClick={() => alert("Kargo Takip No: 1Z9999999999999999 (Aras Kargo)")}
+                                                        onClick={() => {
+                                                            toast.success('Kargo Takip No: 1Z9999999999999999 (Aras Kargo)', {
+                                                                duration: 5000,
+                                                                style: {
+                                                                    background: '#10B981',
+                                                                    color: '#fff',
+                                                                    borderRadius: '10px',
+                                                                },
+                                                                icon: '📦',
+                                                            });
+                                                        }}
                                                         className="bg-purple-600 text-white border border-purple-700 px-3 py-2 rounded-lg text-xs font-semibold hover:bg-purple-700 transition-colors cursor-pointer"
                                                     >
                                                         📦 Kargo Takip
