@@ -35,3 +35,50 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         )
     access_token = security.create_access_token(data={"sub": user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.get("/me")
+def get_current_user_info(current_user: models.User = Depends(security.get_current_user)):
+    return {
+        "user_id": current_user.user_id,
+        "email": current_user.email,
+        "is_admin": getattr(current_user, "is_admin", False) # getattr kullandım ki hata vermesin garanti olsun
+    }
+@router.put("/me")
+def update_profile(
+    user_data: schemas.UserUpdate, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    print(f"Gelen veri: {user_data}")
+    current_user.first_name = user_data.first_name
+    current_user.last_name = user_data.last_name
+    current_user.email = user_data.email
+    db.commit()
+    db.refresh(current_user)
+    return {"message": "Profil başarıyla güncellendi."}
+
+@router.post("/change-password")
+def change_password(
+    pwd_data: schemas.PasswordChange, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(security.get_current_user)
+):
+    if not security.verify_password(pwd_data.old_password, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Mevcut şifreniz hatalı!")
+    
+    current_user.hashed_password = security.get_password_hash(pwd_data.new_password)
+    db.commit()
+    return {"message": "Şifreniz başarıyla değiştirildi."}
+@router.get("/me")
+def get_my_profile(current_user: models.User = Depends(security.get_current_user)):
+    # print(f"DEBUG: {current_user.first_name} {current_user.last_name}") 
+    # ^ Buradaki print'i aç, terminale bak, isimler geliyorsa sorun yok
+    
+    return {
+        "user_id": current_user.user_id,
+        "email": current_user.email,
+        "first_name": current_user.first_name, # Backend'den JSON'a manuel ekliyoruz
+        "last_name": current_user.last_name,   # Backend'den JSON'a manuel ekliyoruz
+        "is_admin": current_user.is_admin
+    }
