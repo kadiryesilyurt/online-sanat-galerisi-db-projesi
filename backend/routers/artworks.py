@@ -3,6 +3,7 @@ from fastapi import status
 from sqlalchemy.orm import Session
 from database import get_db
 import models, schemas, security
+from schemas import ArtworkUpdateSchema
 
 router = APIRouter(prefix="/artworks", tags=["Artworks"])
 
@@ -92,3 +93,22 @@ def delete_artwork(
     db.delete(artwork)
     db.commit()
     return {"message": "Eser başarıyla silindi!"}
+
+@router.put("/{artwork_id}")
+def update_artwork(artwork_id: int, artwork: ArtworkUpdateSchema, db: Session = Depends(get_db)):
+    # Eseri veritabanında bul
+    db_artwork = db.query(models.Artwork).filter(models.Artwork.artwork_id == artwork_id).first()
+    
+    if not db_artwork:
+        raise HTTPException(status_code=404, detail="Eser bulunamadı")
+    
+    # Gelen yeni verileri mevcut eserin üzerine yaz
+    db_artwork.title = artwork.title
+    db_artwork.description = artwork.description
+    db_artwork.price = artwork.price
+    db_artwork.image_url = artwork.image_url
+    db_artwork.artist_id = artwork.artist_id
+    
+    db.commit()
+    db.refresh(db_artwork)
+    return db_artwork

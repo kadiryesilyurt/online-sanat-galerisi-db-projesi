@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, Text, DECIMAL, ForeignKey, TIMESTAMP, Date, Time, DateTime,Float, Boolean, func
 from sqlalchemy.orm import relationship
 from database import Base
-
+from datetime import datetime
 class User(Base):
     __tablename__ = "users"
     user_id = Column(Integer, primary_key=True, index=True)
@@ -85,3 +85,24 @@ class Order(Base):
     created_at = Column(DateTime, default=func.now())
     image_url = Column(String, nullable=True)
     payment_method = Column(String, nullable=True)
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    ticket_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    subject = Column(String(150), nullable=False)  # Konu (Örn: Siparişim Nerede?)
+    message = Column(Text, nullable=False)         # Kullanıcının mesajı
+    admin_response = Column(Text, nullable=True)   # Adminin (bizim) yazdığımız cevap
+    status = Column(String(50), default="Açık")    # Durum: Açık, İşlemde, Çözüldü
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # User tablosuyla bağlantı kuralım
+    owner = relationship("User")    
+class SupportMessage(Base):
+    __tablename__ = "support_messages"
+    id = Column(Integer, primary_key=True, index=True)
+    ticket_id = Column(Integer, ForeignKey("support_tickets.ticket_id"))
+    sender_id = Column(Integer) # Mesajı atan kişinin ID'si
+    is_admin = Column(Boolean, default=False) # Admin mi attı?
+    message = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

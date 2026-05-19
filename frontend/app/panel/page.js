@@ -2,41 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import toast from 'react-hot-toast';
-// Fallback (Sahte) Veriler
-const mockOrders = [
-    {
-        id: "SP-9482",
-        date: "12 Mayıs 2026",
-        product: "Soyut Düşünceler",
-        artist: "Zeynep Kaya",
-        price: 8500,
-        status: "Kargoya Verildi",
-        estDelivery: "21 Mayıs 2026",
-        imageUrl: "https://images.unsplash.com/photo-1541961017774-22349e4a1262?q=80&w=600&auto=format&fit=crop"
-    },
-    {
-        id: "SP-8310",
-        date: "20 Nisan 2026",
-        product: "Zamanın Dokusu",
-        artist: "Caner Erol",
-        price: 12000,
-        status: "Teslim Edildi",
-        estDelivery: "24 Nisan 2026",
-        imageUrl: "https://images.unsplash.com/photo-1547826039-bfc35e0f1ea8?q=80&w=600&auto=format&fit=crop"
-    }
-];
 
-const mockReservations = [
-    { id: 102, title: "Temel Yağlı Boya Atölyesi", date: "25 Mayıs 2026", time: "14:00 - 17:00", status: "Onaylandı" }
-];
-
-const mockFavorites = [
-    { id: 4, title: "Sessizliğin Çığlığı", artist: "Zeynep Kaya", price: 22000, imageUrl: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?q=80&w=600&auto=format&fit=crop" }
-];
-
-const mockTickets = [
-    { id: 492, subject: "Kargo Hasar Bildirimi", date: "14 Mayıs 2026", status: "Cevaplandı" }
-];
 const ReservationItem = ({ rez, onCancel, onUpdate }) => {
     // Kartın içindeki geçici state'ler
     const [date, setDate] = useState(rez.date || rez.reservation_date);
@@ -63,6 +29,7 @@ const ReservationItem = ({ rez, onCancel, onUpdate }) => {
         </div>
     );
 };
+
 const ReservationCard = ({ rez, onCancel, onEdit }) => (
     <div className="p-5 border border-stone-100 bg-white rounded-2xl shadow-sm flex justify-between items-center hover:shadow-md transition-shadow">
         <div>
@@ -194,12 +161,14 @@ const AccountSettings = () => {
         </div>
     );
 };
+
 const EditReservationForm = ({ rez, onSave, onCancel }) => {
-    // State'ler (zamanı da ekledik)
+
+    const [activeTicketId, setActiveTicketId] = useState(null);
     const [date, setDate] = useState(rez.date || rez.reservation_date);
     const [time, setTime] = useState(rez.time || rez.reservation_time);
     const [count, setCount] = useState(rez.participant_count || rez.participants || 1);
-    const [selectedOrder, setSelectedOrder] = useState(null); // Detay için seçili siparişi tutar
+
     // Tarih Sınırları
     const getToday = () => new Date().toISOString().split('T')[0];
     const getOneMonthLater = () => {
@@ -275,23 +244,27 @@ const EditReservationForm = ({ rez, onSave, onCancel }) => {
 
 
 export default function UserPanelPage() {
-
+    const [activeTicketId, setActiveTicketId] = useState(null);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const router = useRouter(); // Güvenlik yönlendirmesi için
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
     const [activeTab, setActiveTab] = useState("orders");
 
     // Canlı veritabanı durumları için statelerimiz kanka
-    const [orders, setOrders] = useState(mockOrders);
-    const [reservations, setReservations] = useState(mockReservations);
-    const [favorites, setFavorites] = useState(mockFavorites);
-    const [tickets, setTickets] = useState(mockTickets);
+    const [orders, setOrders] = useState([]);
+    const [reservations, setReservations] = useState([]);
+    const [favorites, setFavorites] = useState([]);
+    const [tickets, setTickets] = useState([]);
     const [editingRez, setEditingRez] = useState(null);
+
+    // 🚀 TICKET İÇİN YENİ EKLENEN STATE'LER 🚀
+    const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+    const [ticketFormData, setTicketFormData] = useState({ subject: "Siparişim Nerede?", message: "" });
+
+
     // Rezervasyonları çeken fonksiyonu dışarıya çıkar ki istediğimiz zaman çağıralım
     const fetchReservations = async () => {
         const token = localStorage.getItem("token");
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-
         try {
             const response = await fetch(`${backendUrl}/api/panel/reservations`, {
                 headers: { "Authorization": `Bearer ${token}` }
@@ -308,6 +281,7 @@ export default function UserPanelPage() {
             console.error("Rezervasyonlar çekilemedi:", err);
         }
     };
+
     const fetchOrders = async () => {
         const token = localStorage.getItem("token");
         try {
@@ -321,6 +295,22 @@ export default function UserPanelPage() {
         }
     };
 
+    // 🚀 TICKETLARI ÇEKEN YENİ FONKSİYON 🚀
+    const fetchTickets = async () => {
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${backendUrl}/api/support/my-tickets`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setTickets(data);
+            }
+        } catch (err) {
+            console.error("Talepler çekilemedi:", err);
+        }
+    };
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -330,45 +320,12 @@ export default function UserPanelPage() {
             return;
         }
 
-        fetchReservations();
-        console.log("🔥 İstek atılan adres:", `${backendUrl}/api/panel/favorites`);
         const authHeaders = { "Authorization": `Bearer ${token}` };
 
-        // 1. Siparişleri Çek - (Hata verdiği için yorum satırına aldık)
-        // YENİ: Siparişleri Çeken Fonksiyon
-        const fetchOrders = async () => {
-            try {
-                const response = await fetch(`${backendUrl}/api/orders/`, {
-                    headers: authHeaders
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log("📦 Siparişler başarıyla çekildi:", data);
-                    setOrders(Array.isArray(data) ? data : []);
-                } else {
-                    console.error("Siparişler alınamadı, sunucu hata döndürdü.");
-                }
-            } catch (err) {
-                console.error("Siparişler çekilirken bağlantı hatası oluştu:", err);
-            }
-        };
+        // Tüm verileri çek
         fetchOrders();
-
-        // 2. Rezervasyonları Çek
-        fetch(`${backendUrl}/api/panel/reservations`, { headers: authHeaders })
-            .then((res) => res.json())
-            .then((data) => {
-                console.log("🎯 BACKEND'DEN GELEN REZERVASYON VERİSİ:", data);
-                if (Array.isArray(data)) {
-                    setReservations(data);
-                } else if (data && data.reservations && Array.isArray(data.reservations)) {
-                    setReservations(data.reservations);
-                } else {
-                    setReservations([]);
-                }
-            })
-            .catch((err) => console.error("Rezervasyonlar çekilemedi:", err));
+        fetchReservations();
+        fetchTickets(); // 🚀 Sayfa yüklenince ticketları da çek
 
         // 3. Favorileri Çek
         fetch(`${backendUrl}/api/panel/favorites`, { headers: authHeaders })
@@ -377,17 +334,44 @@ export default function UserPanelPage() {
                 return res.json();
             })
             .then((data) => {
-                console.log("⭐ BACKEND'DEN GELEN FAVORİLER:", data);
                 if (Array.isArray(data)) setFavorites(data);
             })
             .catch((err) => {
                 console.error("Favoriler çekilemedi, detay:", err);
             });
 
-        // 4. Destek Taleplerini Çek - (Hata verdiği için yorum satırına aldık)
-        // fetch(`${backendUrl}/api/panel/tickets`, { headers: authHeaders })...
-
     }, [router]);
+
+
+    // 🚀 YENİ TICKET GÖNDERME FONKSİYONU 🚀
+    const handleSubmitTicket = async (e) => {
+        e.preventDefault();
+        const toastId = toast.loading('Talebiniz iletiliyor...');
+        const token = localStorage.getItem("token");
+
+        try {
+            const response = await fetch(`${backendUrl}/api/support/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify(ticketFormData)
+            });
+
+            if (response.ok) {
+                toast.success('Talebiniz başarıyla alındı.', { id: toastId, style: { background: '#10B981', color: '#fff', borderRadius: '10px' } });
+                setIsTicketModalOpen(false);
+                setTicketFormData({ subject: "Siparişim Nerede?", message: "" });
+                fetchTickets(); // Listeyi güncelle
+            } else {
+                toast.error('Talep oluşturulamadı.', { id: toastId });
+            }
+        } catch (error) {
+            toast.error('Sunucuya ulaşılamıyor.', { id: toastId });
+        }
+    };
+
 
     const handleCancelOrder = async (id) => {
         // 1. Kullanıcıya özel modern onay kutusu
@@ -501,6 +485,7 @@ export default function UserPanelPage() {
                 }
             });
     };
+
     // 🚀 Ödev Maddesi 5: Rezervasyon Güncelleme Fonksiyonu
     const handleUpdateReservation = async (reservationId, newDate, newCount, newTime) => {
         const token = localStorage.getItem("token");
@@ -612,7 +597,7 @@ export default function UserPanelPage() {
                 <p className="text-gray-500 text-sm mt-1">Siparişlerinizi, rezervasyonlarınızı ve destek taleplerinizi buradan yönetin.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10">
                 {/* Sol Taraf: Menü Sekmeleri */}
 
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 h-fit space-y-1">
@@ -797,7 +782,7 @@ export default function UserPanelPage() {
                             <h2 className="text-xl font-bold text-gray-800 border-b pb-3 mb-4">Favorilediğiniz Eserler</h2>
                             {favorites.length === 0 && <p className="text-sm text-gray-500">Henüz favorilere eklediğiniz bir eser bulunmuyor.</p>}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {favorites.map((fav) => (
+                                {favorites.map((fav, index) => (
                                     <div key={`fav-${fav.artwork_id || index}`} className="border border-gray-100 rounded-lg overflow-hidden flex bg-gray-50 hover:shadow-md transition-shadow relative">
                                         <img src={fav.image_url || "https://images.unsplash.com/photo-1541961017774-22349e4a1262?q=80&w=200"} alt={fav.title} className="w-24 h-24 object-cover flex-shrink-0" />
                                         <div className="p-3 flex flex-col justify-between text-sm w-full">
@@ -823,24 +808,49 @@ export default function UserPanelPage() {
                         </div>
                     )}
 
-                    {/* Destek Talepleri Sekmesi */}
+                    {/* 🔥 GÜNCELLENMİŞ DESTEK TALEPLERİ SEKME İÇERİĞİ 🔥 */}
                     {activeTab === "support" && (
                         <div className="space-y-4">
                             <div className="flex justify-between items-center border-b pb-3">
                                 <h2 className="text-xl font-bold text-gray-800">Destek Talepleriniz</h2>
-                                <button className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-md hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm active:scale-95">
+                                <button
+                                    onClick={() => setIsTicketModalOpen(true)}
+                                    className="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-md hover:bg-indigo-700 transition-colors cursor-pointer shadow-sm active:scale-95"
+                                >
                                     ➕ Yeni Talep Oluştur
                                 </button>
                             </div>
+
                             {tickets.length === 0 && <p className="text-sm text-gray-500">Açık bir destek talebiniz bulunmuyor.</p>}
-                            {tickets.map((ticket) => (
-                                <div key={`ticket-${ticket.id || index}`} className="p-4 border border-gray-100 bg-gray-50 rounded-lg text-sm flex justify-between items-center hover:border-indigo-200 transition-colors">
-                                    <div>
-                                        <span className="font-mono text-xs text-indigo-600 block">#{ticket.id}</span>
-                                        <span className="font-semibold text-gray-800">{ticket.subject}</span>
-                                        <span className="text-gray-400 block text-xs mt-0.5">Oluşturma: {ticket.date}</span>
+
+                            {tickets.map((ticket, index) => (
+                                <div key={`ticket-${ticket.ticket_id || ticket.id || index}`} className="p-4 border border-gray-100 bg-gray-50 rounded-lg flex flex-col gap-3 hover:border-indigo-200 transition-colors">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <span className="font-mono text-xs text-indigo-600 block">Talep #{ticket.ticket_id || ticket.id}</span>
+                                            <span className="font-bold text-gray-800 text-base">{ticket.subject}</span>
+                                            <span className="text-gray-400 block text-xs mt-1">Oluşturma: {ticket.created_at ? new Date(ticket.created_at).toLocaleDateString('tr-TR') : ticket.date}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end gap-2">
+                                            <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${ticket.status === "Çözüldü" || ticket.status === "Cevaplandı" ? "bg-emerald-100 text-emerald-700" : ticket.status === "İşlemde" ? "bg-blue-100 text-blue-700" : "bg-amber-100 text-amber-700"}`}>
+                                                {ticket.status}
+                                            </span>
+                                            {/* 🔥 SOHBETİ BAŞLAT BUTONU 🔥 */}
+                                            <button
+                                                onClick={() => {
+                                                    const id = ticket.ticket_id || ticket.id;
+                                                    if (id) {
+                                                        setActiveTicketId(id);
+                                                    } else {
+                                                        toast.error("Bilet ID'si bulunamadı!");
+                                                    }
+                                                }}
+                                                className="..."
+                                            >
+                                                💬 Sohbeti Aç
+                                            </button>
+                                        </div>
                                     </div>
-                                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${ticket.status === "Cevaplandı" ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800"}`}>{ticket.status}</span>
                                 </div>
                             ))}
                         </div>
@@ -885,6 +895,163 @@ export default function UserPanelPage() {
                     </div>
                 </div>
             )}
+
+            {/* 🔥 YENİ: DESTEK TALEBİ OLUŞTURMA MODALI (EN ALTA EKLENDİ, Z-INDEX 9999) 🔥 */}
+            {isTicketModalOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden relative">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                            <h3 className="text-lg font-bold text-gray-800">Bize Ulaşın</h3>
+                            <button onClick={() => setIsTicketModalOpen(false)} className="text-xl font-bold text-gray-400 hover:text-gray-600 cursor-pointer">✕</button>
+                        </div>
+
+                        <form onSubmit={handleSubmitTicket} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Konu Başlığı</label>
+                                <select
+                                    value={ticketFormData.subject}
+                                    onChange={(e) => setTicketFormData({ ...ticketFormData, subject: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-indigo-500 bg-white"
+                                    required
+                                >
+                                    <option>Siparişim Nerede?</option>
+                                    <option>İade ve İptal İşlemleri</option>
+                                    <option>Teknik Bir Sorun</option>
+                                    <option>Sanatçı Başvurusu</option>
+                                    <option>Diğer Sorular</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mesajınız</label>
+                                <textarea
+                                    value={ticketFormData.message}
+                                    onChange={(e) => setTicketFormData({ ...ticketFormData, message: e.target.value })}
+                                    rows="5"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-indigo-500 resize-none"
+                                    placeholder="Size nasıl yardımcı olabiliriz? Detayları yazın..."
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3 mt-4">
+                                <button type="button" onClick={() => setIsTicketModalOpen(false)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 cursor-pointer">İptal</button>
+                                <button type="submit" className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 cursor-pointer shadow-md">Talebi Gönder</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+            {/* 🔥 YENİ: DESTEK TALEBİ OLUŞTURMA MODALI (Z-INDEX 9999) 🔥 */}
+            {isTicketModalOpen && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden relative">
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+                            <h3 className="text-lg font-bold text-gray-800">Bize Ulaşın</h3>
+                            <button onClick={() => setIsTicketModalOpen(false)} className="text-xl font-bold text-gray-400 hover:text-gray-600 cursor-pointer">✕</button>
+                        </div>
+
+                        <form onSubmit={handleSubmitTicket} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Konu Başlığı</label>
+                                <select
+                                    value={ticketFormData.subject}
+                                    onChange={(e) => setTicketFormData({ ...ticketFormData, subject: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-indigo-500 bg-white"
+                                    required
+                                >
+                                    <option>Siparişim Nerede?</option>
+                                    <option>İade ve İptal İşlemleri</option>
+                                    <option>Teknik Bir Sorun</option>
+                                    <option>Sanatçı Başvurusu</option>
+                                    <option>Diğer Sorular</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Mesajınız</label>
+                                <textarea
+                                    value={ticketFormData.message}
+                                    onChange={(e) => setTicketFormData({ ...ticketFormData, message: e.target.value })}
+                                    rows="5"
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-xl outline-none focus:border-indigo-500 resize-none"
+                                    placeholder="Size nasıl yardımcı olabiliriz? Detayları yazın..."
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3 mt-4">
+                                <button type="button" onClick={() => setIsTicketModalOpen(false)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 cursor-pointer">İptal</button>
+                                <button type="submit" className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 cursor-pointer shadow-md">Talebi Gönder</button>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            )}
+            {/* Sohbet Penceresini Ekrana Bas (UserPanel için false gönderiyoruz) */}
+            {activeTicketId && (
+                <ChatWindow
+                    ticketId={activeTicketId}
+                    onClose={() => setActiveTicketId(null)}
+                    isAdminView={false}
+                />
+            )}
+        </div>
+    );
+}
+function ChatWindow({ ticketId, onClose, isAdminView }) {
+    const [messages, setMessages] = useState([]);
+    const [text, setText] = useState("");
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+
+    const fetchMessages = async () => {
+        if (!ticketId || ticketId === "null" || ticketId === "undefined") return;
+        const res = await fetch(`${backendUrl}/api/support/${ticketId}/messages`);
+        if (res.ok) setMessages(await res.json());
+    };
+
+    useEffect(() => {
+        fetchMessages();
+        const interval = setInterval(fetchMessages, 3000);
+        return () => clearInterval(interval);
+    }, [ticketId]);
+
+    const sendMessage = async () => {
+        if (!text.trim()) return;
+        const token = localStorage.getItem("token");
+        await fetch(`${backendUrl}/api/support/${ticketId}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+            body: JSON.stringify({ message: text })
+        });
+        setText("");
+        fetchMessages();
+    };
+
+    return (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+            <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4 border-b pb-3">
+                    <h3 className="font-bold text-lg">Canlı Destek #{ticketId}</h3>
+                    <button onClick={onClose} className="text-xl font-bold text-gray-400 hover:text-gray-600">✕</button>
+                </div>
+                <div className="h-64 overflow-y-auto p-4 bg-stone-50 rounded-xl mb-4 space-y-3">
+                    {messages.map((m, i) => {
+                        const isMyMessage = isAdminView ? m.is_admin : !m.is_admin;
+                        return (
+                            <div key={i} className={`p-3 rounded-2xl max-w-[80%] text-sm shadow-sm ${isMyMessage
+                                ? 'bg-indigo-600 text-white ml-auto rounded-br-none'
+                                : 'bg-white border border-stone-200 mr-auto rounded-bl-none'
+                                }`}>
+                                {m.message}
+                            </div>
+                        );
+                    })}
+                </div>
+                <div className="flex gap-2">
+                    <input value={text} onChange={(e) => setText(e.target.value)} className="flex-1 p-2 border rounded-xl text-sm" placeholder="Mesaj yaz..." />
+                    <button onClick={sendMessage} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-indigo-700">Gönder</button>
+                </div>
+            </div>
         </div>
     );
 }

@@ -10,6 +10,7 @@ export default function Sidebar() {
         { name: "Sipariş Yönetimi", path: "/admin/orders", icon: "📦" },
         { name: "Eser Yönetimi", path: "/admin/artworks", icon: "🎨" },
         { name: "Rezervasyonlar", path: "/admin/reservations", icon: "📅" },
+        { name: "Destek Yönetimi", path: "/admin/support", icon: "🎫" }, // EKLENDİ
         { name: "Geri Dön", path: "/", icon: "🏠" },
     ];
 

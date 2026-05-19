@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import toast from 'react-hot-toast';
+
 export default function AdminArtworksPage() {
     const [artworks, setArtworks] = useState([]);
     const [artists, setArtists] = useState([]);
@@ -8,9 +9,20 @@ export default function AdminArtworksPage() {
 
     // Modallar
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isArtistModalOpen, setIsArtistModalOpen] = useState(false); // 🚀 YENİ: Sanatçı Modalı
+    const [isArtistModalOpen, setIsArtistModalOpen] = useState(false);
 
-    const categories = ["Yağlı Boya", "Heykel", "Fotoğraf", "Dijital Sanat", "Karakelem", "Sulu Boya"];
+    // 🚀 YENİ: Düzenleme Modalı State'leri
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedArtwork, setSelectedArtwork] = useState(null);
+    const [editFormData, setEditFormData] = useState({
+        title: "",
+        description: "",
+        price: "",
+        image_url: "",
+        artist_id: ""
+    });
+
+    const categories = ["Yağlı Boya", "Heykel", "Fotoğraf", "Dijital Sanat", "Karakalem", "Sulu Boya"]; // Ufak bir typo düzelttim: Karakelem -> Karakalem
 
     const [formData, setFormData] = useState({
         title: "", artist_id: "", price: "", image_url: "", category: "", stock_status: 1, description: ""
@@ -62,11 +74,7 @@ export default function AdminArtworksPage() {
             if (res.ok) {
                 toast.success('Eser başarıyla listeye eklendi.', {
                     duration: 3000,
-                    style: {
-                        background: '#10B981', // Başarı için yeşil tonu
-                        color: '#fff',
-                        borderRadius: '10px',
-                    },
+                    style: { background: '#10B981', color: '#fff', borderRadius: '10px' },
                     icon: '✅',
                 });
                 setIsModalOpen(false);
@@ -76,11 +84,7 @@ export default function AdminArtworksPage() {
         } catch (error) {
             toast.error('Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.', {
                 duration: 3000,
-                style: {
-                    background: '#EF4444', // Hata için canlı kırmızı
-                    color: '#fff',
-                    borderRadius: '10px',
-                },
+                style: { background: '#EF4444', color: '#fff', borderRadius: '10px' },
                 icon: '❌',
             });
         }
@@ -98,37 +102,63 @@ export default function AdminArtworksPage() {
             if (res.ok) {
                 toast.success('Sanatçı başarıyla kaydedildi.', {
                     duration: 3000,
-                    style: {
-                        background: '#10B981', // Başarı için yeşil tonu
-                        color: '#fff',
-                        borderRadius: '10px',
-                    },
-                    icon: '👨‍🎨', // Sanatçı temalı ikon
+                    style: { background: '#10B981', color: '#fff', borderRadius: '10px' },
+                    icon: '👨‍🎨',
                 });
-                setIsArtistModalOpen(false); // Modalı kapat
+                setIsArtistModalOpen(false);
                 setArtistForm({ name: "", biography: "" })
-                fetchArtists(); // 🚀 Dropdown'u güncelle
+                fetchArtists();
             } else {
                 toast.error('Sanatçı kaydedilemedi. Lütfen bilgileri kontrol edip tekrar deneyin.', {
                     duration: 3500,
-                    style: {
-                        background: '#EF4444', // Hata için canlı kırmızı
-                        color: '#fff',
-                        borderRadius: '10px',
-                    },
+                    style: { background: '#EF4444', color: '#fff', borderRadius: '10px' },
                     icon: '🚫',
                 });
             }
         } catch (error) {
-            toast.error('Sunucu tarafında bir hata oluştu. Lütfen daha sonra tekrar deneyin.', {
+            toast.error('Sunucu tarafında bir hata oluştu.', {
                 duration: 4000,
-                style: {
-                    background: '#EF4444', // Hata için canlı kırmızı
-                    color: '#fff',
-                    borderRadius: '10px',
-                },
-                icon: '💻', // Sunucu/Sistem temalı ikon
+                style: { background: '#EF4444', color: '#fff', borderRadius: '10px' },
+                icon: '💻',
             });
+        }
+    };
+
+    // 🚀 YENİ: ESER GÜNCELLEME (DÜZENLEME) FONKSİYONLARI
+    const handleEditChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleUpdateSubmit = async (e) => {
+        e.preventDefault();
+        const toastId = toast.loading('Eser güncelleniyor...');
+        const token = localStorage.getItem("token");
+
+        try {
+            const res = await fetch(`${backendUrl}/api/artworks/${selectedArtwork.artwork_id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ...editFormData,
+                    price: parseFloat(editFormData.price),
+                    artist_id: parseInt(editFormData.artist_id)
+                }),
+            });
+
+            if (res.ok) {
+                toast.success('Eser başarıyla güncellendi!', { id: toastId, style: { background: '#10B981', color: '#fff', borderRadius: '10px' } });
+                setIsEditModalOpen(false);
+                fetchArtworks();
+            } else {
+                const data = await res.json();
+                toast.error(data.detail || 'Güncelleme başarısız oldu.', { id: toastId, style: { background: '#EF4444', color: '#fff', borderRadius: '10px' } });
+            }
+        } catch (error) {
+            toast.error('Sunucuya ulaşılamıyor.', { id: toastId, style: { background: '#EF4444', color: '#fff', borderRadius: '10px' } });
         }
     };
 
@@ -172,8 +202,27 @@ export default function AdminArtworksPage() {
                                 <td className="p-4"><img src={art.image_url} className="w-12 h-12 rounded-lg object-cover" alt="" /></td>
                                 <td className="p-4 font-bold text-stone-900">{art.title}</td>
                                 <td className="p-4 font-mono font-bold text-stone-900">{art.price} ₺</td>
-                                <td className="p-4 text-right">
-                                    <button onClick={() => handleDelete(art.artwork_id)} className="text-red-500 hover:text-red-700 font-bold px-3 py-1.5 text-sm cursor-pointer">Sil</button>
+                                {/* 🚀 YENİ: DÜZENLE VE SİL BUTONLARI YAN YANA */}
+                                <td className="p-4 text-right space-x-3">
+                                    <button
+                                        onClick={() => {
+                                            setSelectedArtwork(art);
+                                            setEditFormData({
+                                                title: art.title,
+                                                description: art.description || "",
+                                                price: art.price,
+                                                image_url: art.image_url,
+                                                artist_id: art.artist_id ? String(art.artist_id) : ""
+                                            });
+                                            setIsEditModalOpen(true);
+                                        }}
+                                        className="text-indigo-600 hover:text-indigo-800 font-bold px-3 py-1.5 text-sm cursor-pointer transition-colors"
+                                    >
+                                        Düzenle
+                                    </button>
+                                    <button onClick={() => handleDelete(art.artwork_id)} className="text-red-500 hover:text-red-700 font-bold px-3 py-1.5 text-sm cursor-pointer transition-colors">
+                                        Sil
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -181,7 +230,7 @@ export default function AdminArtworksPage() {
                 </table>
             </div>
 
-            {/* YENİ ESER EKLEME MODALI */}
+// YENİ ESER EKLEME MODALI (Biyografi ve Açıklama eklendi)
             {isModalOpen && (
                 <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
                     <div className="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl">
@@ -192,28 +241,18 @@ export default function AdminArtworksPage() {
                                 <input required type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} className="w-full p-2.5 border rounded-xl outline-none focus:border-indigo-500" />
                             </div>
 
-                            {/* SANATÇI DROPDOWN VE HIZLI EKLE BUTONU */}
                             <div>
                                 <label className="block text-xs font-bold text-stone-500 mb-1">Sanatçı Seç</label>
                                 <div className="flex gap-2">
-                                    <select
-                                        required
-                                        value={formData.artist_id}
-                                        onChange={e => setFormData({ ...formData, artist_id: e.target.value })}
-                                        className="flex-1 p-2.5 border rounded-xl bg-white outline-none focus:border-indigo-500"
-                                    >
+                                    <select required value={formData.artist_id} onChange={e => setFormData({ ...formData, artist_id: e.target.value })} className="flex-1 p-2.5 border rounded-xl bg-white outline-none focus:border-indigo-500">
                                         <option value="" disabled>Seçiniz...</option>
                                         {artists.map(artist => (
-                                            <option key={artist.artist_id} value={artist.artist_id}>
+                                            <option key={artist.artist_id} value={String(artist.artist_id)}>
                                                 {artist.name}
                                             </option>
                                         ))}
                                     </select>
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsArtistModalOpen(true)}
-                                        className="bg-stone-900 text-white px-4 rounded-xl font-bold text-sm hover:bg-stone-800 transition-colors"
-                                    >
+                                    <button type="button" onClick={() => setIsArtistModalOpen(true)} className="bg-stone-900 text-white px-4 rounded-xl font-bold text-sm hover:bg-stone-800 transition-colors">
                                         + Yeni
                                     </button>
                                 </div>
@@ -232,10 +271,18 @@ export default function AdminArtworksPage() {
                                     <input required type="number" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} className="w-full p-2.5 border rounded-xl" />
                                 </div>
                             </div>
+
                             <div>
                                 <label className="block text-xs font-bold text-stone-500 mb-1">Görsel URL</label>
                                 <input required type="text" value={formData.image_url} onChange={e => setFormData({ ...formData, image_url: e.target.value })} className="w-full p-2.5 border rounded-xl" />
                             </div>
+
+                            {/* 🚀 YENİ: ESER AÇIKLAMASI EKLENDİ */}
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 mb-1">Eser Açıklaması</label>
+                                <textarea required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} rows="3" className="w-full p-2.5 border rounded-xl outline-none focus:border-indigo-500 resize-none" placeholder="Eserin tekniği, hikayesi vb..."></textarea>
+                            </div>
+
                             <div className="flex gap-4 mt-6">
                                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 border rounded-xl font-bold">Vazgeç</button>
                                 <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold">Kaydet</button>
@@ -245,7 +292,7 @@ export default function AdminArtworksPage() {
                 </div>
             )}
 
-            {/* 🚀 HIZLI SANATÇI EKLEME MODALI 🚀 */}
+            {/* HIZLI SANATÇI EKLEME MODALI */}
             {isArtistModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
                     <div className="bg-white p-8 rounded-2xl w-full max-w-sm shadow-2xl border-4 border-indigo-100">
@@ -255,9 +302,74 @@ export default function AdminArtworksPage() {
                                 <label className="block text-xs font-bold text-stone-500 mb-1">Sanatçı Adı Soyadı</label>
                                 <input required type="text" value={artistForm.name} onChange={e => setArtistForm({ ...artistForm, name: e.target.value })} className="w-full p-2.5 border rounded-xl" />
                             </div>
+
+                            {/* 🚀 YENİ: BİYOGRAFİ EKLENDİ */}
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 mb-1">Biyografi (İsteğe Bağlı)</label>
+                                <textarea value={artistForm.biography} onChange={e => setArtistForm({ ...artistForm, biography: e.target.value })} rows="3" className="w-full p-2.5 border rounded-xl outline-none focus:border-indigo-500 resize-none" placeholder="Sanatçı hakkında kısa bir bilgi..."></textarea>
+                            </div>
+
                             <div className="flex gap-3 mt-6">
                                 <button type="button" onClick={() => setIsArtistModalOpen(false)} className="flex-1 py-2.5 border rounded-xl font-bold">İptal</button>
                                 <button type="submit" className="flex-1 py-2.5 bg-stone-900 text-white rounded-xl font-bold">Sanatçıyı Ekle</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* 🚀 YENİ: ESER DÜZENLEME MODALI 🚀 */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm antialiased">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+                        <div className="px-6 py-4 border-b border-stone-100 flex justify-between items-center bg-stone-50">
+                            <h3 className="text-lg font-black text-stone-800">Eseri Düzenle</h3>
+                            <button onClick={() => setIsEditModalOpen(false)} className="text-stone-400 hover:text-stone-600 transition-colors cursor-pointer text-xl font-bold">
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdateSubmit} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wide mb-1">Eser Adı</label>
+                                <input type="text" name="title" value={editFormData.title} onChange={handleEditChange} className="w-full px-3 py-2.5 border border-stone-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" required />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-wide mb-1">Fiyat (₺)</label>
+                                    <input type="number" name="price" value={editFormData.price} onChange={handleEditChange} className="w-full px-3 py-2.5 border border-stone-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" required />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-stone-500 uppercase tracking-wide mb-1">Sanatçı</label>
+                                    <select name="artist_id" value={editFormData.artist_id} onChange={handleEditChange} className="w-full px-3 py-2.5 border border-stone-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" required>
+                                        <option value="" disabled>Seçiniz...</option>
+                                        {artists.map(artist => (
+                                            <option key={artist.artist_id} value={artist.artist_id}>
+                                                {artist.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wide mb-1">Görsel URL</label>
+                                <input type="text" name="image_url" value={editFormData.image_url} onChange={handleEditChange} className="w-full px-3 py-2.5 border border-stone-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all" required />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-stone-500 uppercase tracking-wide mb-1">Açıklama</label>
+                                <textarea name="description" value={editFormData.description} onChange={handleEditChange} rows="3" className="w-full px-3 py-2.5 border border-stone-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all resize-none"></textarea>
+                            </div>
+
+                            <div className="pt-4 flex justify-end gap-3 mt-2">
+                                <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-5 py-2.5 text-sm font-bold text-stone-700 bg-stone-100 rounded-xl hover:bg-stone-200 transition-colors cursor-pointer">
+                                    İptal
+                                </button>
+                                <button type="submit" className="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-md cursor-pointer">
+                                    Değişiklikleri Kaydet
+                                </button>
                             </div>
                         </form>
                     </div>

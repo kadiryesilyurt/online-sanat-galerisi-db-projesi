@@ -153,3 +153,58 @@ class UserUpdate(BaseModel):
 class PasswordChange(BaseModel):
     old_password: str
     new_password: str
+class ArtworkUpdateSchema(BaseModel):
+    title: str
+    price: float
+    artist_id: int
+    image_url: str
+    description: Optional[str] = None
+class ForgotPasswordSchema(BaseModel):
+    email: str
+
+class VerifyCodeSchema(BaseModel):
+    email: str
+    code: str
+
+class ResetPasswordSchema(BaseModel):
+    email: str
+    code: str
+    new_password: str   
+# Kullanıcı yeni talep açarken kullanılacak
+class TicketCreate(BaseModel):
+    subject: str
+    message: str
+
+# Admin talebi yanıtlarken/güncellerken kullanılacak
+class TicketUpdate(BaseModel):
+    status: str
+    admin_response: Optional[str] = None
+
+# Frontend'e veriyi yollarken kullanılacak kalıp
+class TicketResponse(BaseModel):
+    ticket_id: int
+    user_id: int
+    subject: str
+    message: str
+    admin_response: Optional[str]
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True    
+# schemas.py dosyasının en altına ekle:
+
+class MessageCreate(BaseModel):
+    message: str
+
+# Eğer get_messages için de bir şema istersen (öneririm), şunu da ekle:
+class MessageResponse(BaseModel):
+    id: int
+    ticket_id: int
+    sender_id: int
+    is_admin: bool
+    message: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True        
