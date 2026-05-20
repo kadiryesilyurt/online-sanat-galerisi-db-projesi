@@ -20,11 +20,11 @@ export default function ArtworkDetailPage() {
     const [sortBy, setSortBy] = useState("newest"); // Varsayılan: En Yeni
     const [rating, setRating] = useState(5);
     const [comment, setComment] = useState("");
-    
+
     // 👑 Yönetici Yanıt State'leri (Madde 14)
     const [replyingTo, setReplyingTo] = useState(null); // Hangi yorum ID'sine yanıt yazıldığını tutar
     const [replyText, setReplyText] = useState("");     // Yönetici yanıtının metnini tutar
-    
+
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
     // 🔍 Yorumları Akıllı Filtreye Göre Çeken Motor (Madde 13)
@@ -32,10 +32,10 @@ export default function ArtworkDetailPage() {
         try {
             // 1. Tüm yorumları çek
             const res = await fetch(`${backendUrl}/api/reviews/artwork/${id}?sort_by=${sortParam}`);
-            
+
             if (res.ok) {
                 let data = await res.json();
-                
+
                 // 2. Kullanıcı giriş yapmış mı kontrol et
                 const token = localStorage.getItem("token");
                 if (token) {
@@ -44,10 +44,10 @@ export default function ArtworkDetailPage() {
                         const voteRes = await fetch(`${backendUrl}/api/reviews/user/my-votes`, {
                             headers: { "Authorization": `Bearer ${token}` }
                         });
-                        
+
                         if (voteRes.ok) {
                             const myVotes = await voteRes.json(); // Örn: [1, 5, 12]
-                            
+
                             // 4. Gelen yorumlarla senin oylarını eşleştir (Mavi butonları geri getir)
                             data = data.map(rev => ({
                                 ...rev,
@@ -58,12 +58,12 @@ export default function ArtworkDetailPage() {
                         console.error("Kullanıcı oyları çekilirken hata:", err);
                     }
                 }
-                
+
                 // 5. Ekrana bas
-                setReviews(data); 
+                setReviews(data);
             }
-        } catch (err) { 
-            console.error("Filtreleme hatası:", err); 
+        } catch (err) {
+            console.error("Filtreleme hatası:", err);
         }
     };
 
@@ -88,11 +88,43 @@ export default function ArtworkDetailPage() {
                 setLoading(false);
             }
         };
+
+        // 🔥 FAVORİ KONTROLÜ (Sayfa yenilenince backend'den sorar)
+        const checkIsFavorite = async () => {
+            const token = localStorage.getItem("token");
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${backendUrl}/api/panel/favorites`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+
+                if (res.ok) {
+                    const favorites = await res.json();
+
+                    // 🔥 DEBUG: Konsola bakalım ne geliyor
+                    console.log("Backend'den gelen favoriler:", favorites);
+                    console.log("Şu anki sayfa ID'si:", id);
+
+                    // Tip farkını çözmek için ikisini de string yapıp karşılaştıralım (Daha güvenli)
+                    const isAlreadyFav = favorites.some(fav => String(fav.artwork_id) === String(id));
+
+                    console.log("Favori mi?", isAlreadyFav);
+                    setIsFavorite(isAlreadyFav);
+                } else {
+                    console.error("Favoriler yüklenirken hata:", res.status);
+                }
+            } catch (err) {
+                console.error("Favori kontrolü hatası:", err);
+            }
+        };
+
         if (id) {
             fetchArtwork();
             fetchReviews();
+            checkIsFavorite(); // 🔥 Sayfa yüklendiği an favori durumunu güncelle
         }
-    }, [id]);
+    }, [id]); // Sadece [id] değiştiğinde çalışır, yani eser değişirse tekrar kontrol eder
 
     const handleAddReview = async (e) => {
         e.preventDefault();
@@ -141,23 +173,23 @@ export default function ArtworkDetailPage() {
 
         // Tıklanan yorumu diziden bul
         const currentReview = reviews.find(r => r.review_id === reviewId);
-        
+
         // Yorum daha önce oylandı mı? (localStorage yerine stateteki veriyi kullanıyoruz)
-        const isVoted = currentReview.is_voted || false; 
-        
+        const isVoted = currentReview.is_voted || false;
+
         // Uca karar ver
         const endpoint = isVoted ? "remove-helpful" : "helpful";
         const newCount = isVoted ? -1 : 1;
 
         // 1. UI'da anında güncelle (Optimistic Update)
-        setReviews(currentReviews => 
-            currentReviews.map(rev => 
-                rev.review_id === reviewId 
-                    ? { 
-                        ...rev, 
+        setReviews(currentReviews =>
+            currentReviews.map(rev =>
+                rev.review_id === reviewId
+                    ? {
+                        ...rev,
                         helpful_votes: Math.max(0, (rev.helpful_votes || 0) + newCount),
                         is_voted: !isVoted // Tıklanınca durumu tam tersine çevir
-                      } 
+                    }
                     : rev
             )
         );
@@ -170,14 +202,14 @@ export default function ArtworkDetailPage() {
 
         // 2. Backend'e bildir
         try {
-            await fetch(`${backendUrl}/api/reviews/${reviewId}/${endpoint}`, { 
+            await fetch(`${backendUrl}/api/reviews/${reviewId}/${endpoint}`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${token}` 
+                    "Authorization": `Bearer ${token}`
                 }
             });
-        } catch (err) { 
-            console.error("Oylama sırasında hata:", err); 
+        } catch (err) {
+            console.error("Oylama sırasında hata:", err);
         }
     };
 
@@ -219,10 +251,11 @@ export default function ArtworkDetailPage() {
     const handleAddFavorite = async () => {
         const token = localStorage.getItem("token");
         if (!token) {
-            alert("Favorilere eklemek için giriş yap kanka!");
+            toast.error("Favorilere eklemek için giriş yapmalısın kanka!");
             router.push("/auth?mode=login");
             return;
         }
+
         try {
             const response = await fetch(`${backendUrl}/api/panel/favorites`, {
                 method: "POST",
@@ -232,8 +265,17 @@ export default function ArtworkDetailPage() {
                 },
                 body: JSON.stringify({ artwork_id: parseInt(id) }),
             });
-            if (response.ok) setIsFavorite(!isFavorite);
-        } catch (error) { console.error(error); }
+
+            if (response.ok) {
+                setIsFavorite(!isFavorite); // Durumu tersine çevir (kırmızıysa beyaz yap, beyazsa kırmızı)
+                toast.success(isFavorite ? "Favorilerden kaldırıldı." : "Favorilere eklendi!");
+            } else {
+                toast.error("İşlem başarısız oldu.");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Bir sorun oluştu.");
+        }
     };
 
     const handlePurchase = async (method) => {
@@ -320,20 +362,20 @@ export default function ArtworkDetailPage() {
 
                 {/* 💬 YORUMLAR PANELİ (MADDE 12 & 13) */}
                 <div className="mt-16 border-t border-gray-100 pt-12 max-w-4xl">
-                    
+
                     {/* YORUM BAŞLIĞI VE AKILLI FİLTRELEME MENÜSÜ */}
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                         <h2 className="text-2xl font-black text-gray-900 flex items-center gap-2">💬 Kullanıcı Değerlendirmeleri ({reviews.length})</h2>
-                        
+
                         {/* 📊 AKILLI FİLTRELEME SELECT BOX */}
                         <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-xl">
                             <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sırala:</span>
-                            <select 
-                                value={sortBy} 
+                            <select
+                                value={sortBy}
                                 onChange={(e) => {
                                     const value = e.target.value;
-                                    setSortBy(value); 
-                                    fetchReviews(value); 
+                                    setSortBy(value);
+                                    fetchReviews(value);
                                 }}
                                 className="bg-transparent text-sm font-bold text-gray-800 focus:outline-none cursor-pointer"
                             >
@@ -378,7 +420,7 @@ export default function ArtworkDetailPage() {
                                         <span className="text-[10px] font-medium text-gray-400">{new Date(rev.created_at).toLocaleDateString("tr-TR")}</span>
                                     </div>
                                     <p className="text-gray-600 text-sm leading-relaxed mb-4">{rev.comment}</p>
-                                    
+
                                     {/* 👑 GALERİ YÖNETİCİSİ YANITI */}
                                     {rev.admin_reply && (
                                         <div className="mb-4 mt-2 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100">
@@ -394,7 +436,7 @@ export default function ArtworkDetailPage() {
                                     {/* 🛠️ YÖNETİCİ YANIT YAZMA FORMU */}
                                     {replyingTo === rev.review_id ? (
                                         <div className="mb-4 mt-2 p-3 bg-gray-50 border border-gray-200 rounded-xl">
-                                            <textarea 
+                                            <textarea
                                                 value={replyText}
                                                 onChange={(e) => setReplyText(e.target.value)}
                                                 placeholder="Yönetici olarak yanıtınızı buraya yazın..."
@@ -411,11 +453,11 @@ export default function ArtworkDetailPage() {
 
                                 {/* ALT KISIM (Yanıtla Butonu ve Faydalı Bul Butonu) */}
                                 <div className="flex justify-between items-center pt-2 border-t border-gray-50 mt-4">
-                                    
+
                                     {/* 👑 YANITLA BUTONU (Sadece henüz yanıt verilmemişse görünür) */}
                                     {!rev.admin_reply ? (
-                                        <button 
-                                            onClick={() => setReplyingTo(rev.review_id)} 
+                                        <button
+                                            onClick={() => setReplyingTo(rev.review_id)}
                                             className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
                                         >
                                             👑 Yanıtla
@@ -423,7 +465,7 @@ export default function ArtworkDetailPage() {
                                     ) : <div></div>}
 
                                     {/* 👍 FAYDALI BULMA BUTONU */}
-                                    <button 
+                                    <button
                                         onClick={() => handleVoteHelpful(rev.review_id)}
                                         className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors ${rev.is_voted ? "bg-indigo-600 text-white" : "bg-gray-50 text-gray-500 hover:bg-gray-100"}`}
                                     >

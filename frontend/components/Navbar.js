@@ -44,7 +44,7 @@ export default function Navbar() {
 
                     {/* Sol Taraf: Logo */}
                     <Link href="/" className="text-2xl font-extrabold text-indigo-600 tracking-tight">
-                        Sanat<span className="text-gray-800">Galerisi</span>
+                        Arte<span className="text-gray-800">Base</span>
                     </Link>
 
                     {/* Orta Kısım: Menü */}

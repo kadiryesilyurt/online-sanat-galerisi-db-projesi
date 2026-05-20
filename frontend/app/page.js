@@ -14,7 +14,7 @@ const ArtworkRatingStats = ({ artworkId }) => {
         const fetchAllStats = async () => {
             try {
                 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-                
+
                 // 1. Yorum İstatistiklerini Çek
                 const reviewRes = await fetch(`${backendUrl}/api/reviews/artwork/${artworkId}/stats`);
                 if (reviewRes.ok) setReviewStats(await reviewRes.json());
@@ -22,7 +22,7 @@ const ArtworkRatingStats = ({ artworkId }) => {
                 // 2. Beğeni ve Görüntülenme İstatistiklerini Çek
                 const extraRes = await fetch(`${backendUrl}/api/artworks/${artworkId}/stats`);
                 if (extraRes.ok) setExtraStats(await extraRes.json());
-                
+
             } catch (err) { console.error("İstatistikler çekilemedi:", err); }
         };
         if (artworkId) fetchAllStats();
@@ -39,7 +39,7 @@ const ArtworkRatingStats = ({ artworkId }) => {
             ) : (
                 <span className="text-[11px] text-gray-400 italic">Henüz yorum yok</span>
             )}
-            
+
             {/* Beğeni ve Görüntülenme (Vitrin Özelliği) */}
             <div className="flex items-center gap-2 text-[10px] font-bold">
                 <span className="flex items-center gap-1 text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
@@ -73,12 +73,36 @@ export default function ExplorePage() { // Klasörle bağlantılı nizamî bile�
                     setArtworks(data);
                 }
             } catch (error) {
-                console.error("Backend'e bağlanılamadı kanka:", error);
+                console.error("Eserler çekilemedi:", error);
             } finally {
                 setLoading(false);
             }
         };
+
+        // 🔥 BURAYI EKLE: Sayfa açılınca favorileri backend'den çek
+        const fetchFavorites = async () => {
+            const token = localStorage.getItem("token");
+            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${backendUrl}/api/panel/favorites`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log("✅ Backend'den gelen favoriler:", data);
+                    // data array'inin içindeki artwork_id'leri state'e atıyoruz
+                    setFavorites(data.map(f => f.artwork_id));
+                }
+            } catch (err) {
+                console.error("Favoriler çekilemedi:", err);
+            }
+        };
+
         fetchArtworks();
+        fetchFavorites(); // Favorileri yükle
     }, []);
 
     const categories = ["Tümü", "Tablo", "Heykel", "Dijital Sanat", "Fotoğraf"];
@@ -163,7 +187,7 @@ export default function ExplorePage() { // Klasörle bağlantılı nizamî bile�
         }
     };
 
-const handleSaveComparison = async () => {
+    const handleSaveComparison = async () => {
         const token = localStorage.getItem("token");
         if (!token) { toast.error("Giriş yapmalısın kanka!"); return; }
 
@@ -171,7 +195,7 @@ const handleSaveComparison = async () => {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
 
         try {
-            const res = await fetch(`${backendUrl}/api/users/comparisons`, { 
+            const res = await fetch(`${backendUrl}/api/users/comparisons`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                 body: JSON.stringify({ item_type: "artwork", item_ids: selectedIds })
@@ -325,7 +349,7 @@ const handleSaveComparison = async () => {
             {isCompareModalOpen && (
                 <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative">
-                        
+
                         {/* BAŞLIK */}
                         <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-white z-10 shrink-0">
                             <h3 className="text-xl font-bold text-gray-900">Eser Karşılaştırması</h3>

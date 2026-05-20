@@ -702,7 +702,7 @@ export default function UserPanelPage() {
     return (
         <div className="container mx-auto px-4 py-10 max-w-6xl">
             <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Müşteri Kontrol Paneli</h1>
+                <h1 className="text-3xl font-bold text-gray-900">ArteBase Kontrol Paneli</h1>
                 <p className="text-gray-500 text-sm mt-1">Siparişlerinizi, rezervasyonlarınızı ve destek taleplerinizi buradan yönetin.</p>
             </div>
 
