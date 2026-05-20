@@ -1,20 +1,65 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation"; // Yönlendirme için ekledik
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import toast from 'react-hot-toast';
 
-export default function HomePage() {
-    const router = useRouter(); // İncele butonuna basınca sayfaya gitmek için
+// Her bir eser kartı için yıldız istatistiklerini çeken alt bileşen (Madde 13)
+// Her bir eser kartı için istatistikleri (Yorum, Beğeni, Görüntülenme) çeken alt bileşen
+const ArtworkRatingStats = ({ artworkId }) => {
+    const [reviewStats, setReviewStats] = useState({ average_rating: 0, total_reviews: 0 });
+    const [extraStats, setExtraStats] = useState({ view_count: 0, like_count: 0 });
+
+    useEffect(() => {
+        const fetchAllStats = async () => {
+            try {
+                const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+                
+                // 1. Yorum İstatistiklerini Çek
+                const reviewRes = await fetch(`${backendUrl}/api/reviews/artwork/${artworkId}/stats`);
+                if (reviewRes.ok) setReviewStats(await reviewRes.json());
+
+                // 2. Beğeni ve Görüntülenme İstatistiklerini Çek
+                const extraRes = await fetch(`${backendUrl}/api/artworks/${artworkId}/stats`);
+                if (extraRes.ok) setExtraStats(await extraRes.json());
+                
+            } catch (err) { console.error("İstatistikler çekilemedi:", err); }
+        };
+        if (artworkId) fetchAllStats();
+    }, [artworkId]);
+
+    return (
+        <div className="flex flex-col gap-1.5 items-end">
+            {/* Yıldız ve Yorum */}
+            {reviewStats.total_reviews > 0 ? (
+                <div className="flex items-center gap-1 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded-md shadow-sm">
+                    <span className="text-xs text-amber-500">⭐ {reviewStats.average_rating}</span>
+                    <span className="text-[10px] font-medium text-amber-700">({reviewStats.total_reviews})</span>
+                </div>
+            ) : (
+                <span className="text-[11px] text-gray-400 italic">Henüz yorum yok</span>
+            )}
+            
+            {/* Beğeni ve Görüntülenme (Vitrin Özelliği) */}
+            <div className="flex items-center gap-2 text-[10px] font-bold">
+                <span className="flex items-center gap-1 text-red-500 bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                    ❤️ {extraStats.like_count}
+                </span>
+                <span className="flex items-center gap-1 text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100">
+                    👁️ {extraStats.view_count}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+export default function ExplorePage() { // Klasörle bağlantılı nizamî bileşen ismi yapıldı!
+    const router = useRouter();
     const [selectedCategory, setSelectedCategory] = useState("Tümü");
     const [searchQuery, setSearchQuery] = useState("");
-
     const [artworks, setArtworks] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    // YENİ: Favoriye alınanların ID'sini tuttuğumuz liste (Kalpleri kırmızı yapmak için)
     const [favorites, setFavorites] = useState([]);
-
-    // YENİ: Karşılaştırma için seçilen eserlerin listesi ve Modal durumu
     const [compareList, setCompareList] = useState([]);
     const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
 
@@ -47,41 +92,32 @@ export default function HomePage() {
         return matchesCategory && matchesSearch;
     });
 
-    // 1. FAVORİLERE EKLEME MOTURU (Görsel Tepki Eklendi)
-    // 1. FAVORİLERE EKLEME MOTORU (Instagram Mantığı - Anında Kırmızı Olur)
-    // 1. FAVORİLERE EKLEME MOTORU (Kimlik Doğrulamalı)
     const handleAddFavorite = async (e, artworkId) => {
         e.preventDefault();
         e.stopPropagation();
 
         const isCurrentlyFavorite = favorites.includes(artworkId);
 
-        // BEKLEMEDEN ANINDA KALBİ BOYUYORUZ (Kullanıcıya şov yapıyoruz)
         if (isCurrentlyFavorite) {
             setFavorites(favorites.filter(id => id !== artworkId));
         } else {
             setFavorites([...favorites, artworkId]);
         }
 
-        // Arka planda sessizce backend'e bildiriyoruz
         try {
             const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
-
-            // 🚀 İŞTE KRİTİK NOKTA: Tarayıcıdan giriş yaparken aldığımız Token'ı çekiyoruz
             const token = localStorage.getItem("token");
-            console.log("🔥 Gönderilen Token:", token);
 
             if (!token) {
                 toast.error('Eserleri favorilerinize eklemek için lütfen önce giriş yapın.', {
                     duration: 3000,
                     style: {
-                        background: '#3B82F6', // Profil/Giriş işlemleri için mavi tonu
+                        background: '#3B82F6',
                         color: '#fff',
                         borderRadius: '10px',
                     },
                     icon: '👤',
                 });
-                // Giriş yapmamışsa kalbi geri eski haline getiriyoruz
                 if (isCurrentlyFavorite) setFavorites([...favorites, artworkId]);
                 else setFavorites(favorites.filter(id => id !== artworkId));
                 return;
@@ -91,43 +127,35 @@ export default function HomePage() {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` // 🔐 Güvenlik kapısını açan anahtarı ekledik!
+                    "Authorization": `Bearer ${token}`
                 },
-                // Kadir'in şeması (FavoriteCreate) sadece artwork_id bekliyor, fazlalıkları sildik
                 body: JSON.stringify({ artwork_id: artworkId }),
             });
 
-            // Eğer backend 404, 401 veya 422 hatası verirse kalbi çaktırmadan geri alıyoruz
             if (!response.ok) {
-                console.error("Backend'e kaydedilemedi, işlem geri alınıyor.");
-                if (isCurrentlyFavorite) {
-                    setFavorites([...favorites, artworkId]);
-                } else {
-                    setFavorites(favorites.filter(id => id !== artworkId));
-                }
+                if (isCurrentlyFavorite) setFavorites([...favorites, artworkId]);
+                else setFavorites(favorites.filter(id => id !== artworkId));
             }
         } catch (error) {
             console.error("Sunucuya ulaşılamadı.");
         }
     };
-    // 2. KARŞILAŞTIRMA LİSTESİNE EKLEME/ÇIKARMA MOTORU
+
     const toggleCompare = (artwork) => {
         const isAlreadyInList = compareList.some(item => item.artwork_id === artwork.artwork_id);
 
         if (isAlreadyInList) {
-            // Varsa çıkar
             setCompareList(compareList.filter(item => item.artwork_id !== artwork.artwork_id));
         } else {
-            // Yoksa ekle (Maksimum 3 eser sınırlandıralım ki ekran patlamasın)
             if (compareList.length >= 3) {
                 toast.error('Karşılaştırma yapmak için en fazla 3 eser seçebilirsiniz.', {
                     duration: 3500,
                     style: {
-                        background: '#F59E0B', // Uyarılar için "Amber/Sarı" tonu
+                        background: '#F59E0B',
                         color: '#fff',
                         borderRadius: '10px',
                     },
-                    icon: '⚖️', // Karşılaştırma/Terazi temalı ikon
+                    icon: '⚖️',
                 });
                 return;
             }
@@ -135,10 +163,30 @@ export default function HomePage() {
         }
     };
 
+const handleSaveComparison = async () => {
+        const token = localStorage.getItem("token");
+        if (!token) { toast.error("Giriş yapmalısın kanka!"); return; }
+
+        const selectedIds = compareList.map(item => item.artwork_id);
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+
+        try {
+            const res = await fetch(`${backendUrl}/api/users/comparisons`, { 
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+                body: JSON.stringify({ item_type: "artwork", item_ids: selectedIds })
+            });
+            if (res.ok) {
+                toast.success("Eser karşılaştırması profilinize kaydedildi! 💾");
+                setIsCompareModalOpen(false);
+                setCompareList([]);
+            } else { toast.error("Kaydedilirken hata oluştu."); }
+        } catch (err) { toast.error("Bağlantı hatası!"); }
+    };
+
     return (
         <div className="bg-gray-50 min-h-screen relative">
-
-            {/* HERO VE ARAMA ÇUBUĞU (Aynı Bıraktım) */}
+            {/* HERO BANNER */}
             <div className="bg-neutral-950 text-white py-24 px-4 border-b border-neutral-900 relative overflow-hidden text-center">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-neutral-900/50 via-neutral-950 to-neutral-950 pointer-events-none"></div>
                 <div className="container mx-auto max-w-3xl relative z-10">
@@ -149,6 +197,7 @@ export default function HomePage() {
                 </div>
             </div>
 
+            {/* ARAMA BARU */}
             <div className="container mx-auto px-4 relative z-20 -mt-7">
                 <div className="max-w-lg mx-auto bg-white rounded-xl shadow-[0_15px_35px_rgba(0,0,0,0.1)] border border-gray-100 p-1.5 flex items-center">
                     <input
@@ -161,6 +210,7 @@ export default function HomePage() {
                 </div>
             </div>
 
+            {/* KATEGORİ SEÇİM BUTONLARI */}
             <div className="container mx-auto px-4 mt-6">
                 <div className="flex flex-wrap justify-center gap-2 md:gap-3">
                     {categories.map((category) => (
@@ -175,24 +225,19 @@ export default function HomePage() {
                 </div>
             </div>
 
-            {/* ESERLERİN LİSTELENDİĞİ GRID YAPISI */}
+            {/* GRID İÇERİĞİ */}
             <div className="container mx-auto px-4 py-12">
                 <div className="flex justify-between items-center mb-6">
                     <p className="text-sm font-semibold text-gray-500">
                         {loading ? "Eserler yükleniyor..." : `${filteredArtworks.length} eser listeleniyor`}
                     </p>
 
-                    {/* KARŞILAŞTIRMA BUTONU (Seçili Eser Varsa Aktifleşir) */}
                     <button
                         onClick={() => {
                             if (compareList.length < 2) {
-                                toast.error('Karşılaştırma yapabilmek için en az 2 eser seçmelisiniz.', {
+                                toast.error('Karşılaştırma yapabilmek için en alta en az 2 eser seçmelisiniz.', {
                                     duration: 3000,
-                                    style: {
-                                        background: '#F59E0B',
-                                        color: '#fff',
-                                        borderRadius: '10px',
-                                    },
+                                    style: { background: '#F59E0B', color: '#fff', borderRadius: '10px' },
                                     icon: '⚖️',
                                 });
                             } else {
@@ -210,16 +255,12 @@ export default function HomePage() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {filteredArtworks.map((artwork) => {
-                            // Kalp durumu ve karşılaştırma durumunu kontrol ediyoruz
                             const isFavorite = favorites.includes(artwork.artwork_id);
                             const isCompared = compareList.some(item => item.artwork_id === artwork.artwork_id);
 
                             return (
                                 <div key={artwork.artwork_id} className={`bg-white rounded-xl shadow-md overflow-hidden relative group border-2 transition-all duration-300 flex flex-col justify-between ${isCompared ? "border-indigo-500 shadow-indigo-100" : "border-transparent"}`}>
-
                                     <div className="relative">
-                                        {/* FAVORİ BUTONU */}
-                                        {/* FAVORİ BUTONU */}
                                         <button
                                             onClick={(e) => handleAddFavorite(e, artwork.artwork_id)}
                                             className={`absolute top-4 right-4 z-10 p-2.5 rounded-full shadow-md transition-all duration-200 text-sm cursor-pointer ${isFavorite ? "bg-red-500 text-white" : "bg-white/80 text-gray-400 hover:text-red-500"}`}
@@ -227,7 +268,6 @@ export default function HomePage() {
                                             {isFavorite ? "❤️" : "🤍"}
                                         </button>
 
-                                        {/* KARŞILAŞTIRMA TİKİ (Checkbox mantığı) */}
                                         <button
                                             onClick={() => toggleCompare(artwork)}
                                             className={`absolute top-4 left-4 z-10 text-xs font-bold px-3 py-1.5 rounded-full shadow-md cursor-pointer transition-all ${isCompared ? "bg-indigo-600 text-white" : "bg-white/90 text-gray-600 hover:bg-indigo-50"}`}
@@ -250,8 +290,12 @@ export default function HomePage() {
 
                                     <div className="p-6 flex-grow flex flex-col justify-between">
                                         <div>
-                                            <h2 className="text-xl font-bold text-gray-900 truncate">{artwork.title}</h2>
-                                            <p className="text-gray-500 text-sm mt-1">Sanatçı: <span className="font-semibold text-gray-700">{artwork.artist_name || "Bilinmiyor"}</span></p>
+                                            <div className="flex justify-between items-start gap-2 mb-1">
+                                                <h2 className="text-xl font-bold text-gray-900 truncate flex-1">{artwork.title}</h2>
+                                                {/* ⭐ YENİ: ORTALAMA YILDIZ VE YORUM SAYISI (Madde 13) */}
+                                                <ArtworkRatingStats artworkId={artwork.artwork_id} />
+                                            </div>
+                                            <p className="text-gray-500 text-sm">Sanatçı: <span className="font-semibold text-gray-700">{artwork.artist_name || "Bilinmiyor"}</span></p>
                                         </div>
 
                                         <div className="mt-6 pt-4 border-t border-gray-50 flex justify-between items-center">
@@ -261,7 +305,6 @@ export default function HomePage() {
                                             </div>
 
                                             <div className="flex flex-col items-end gap-2">
-                                                {/* İNCELE BUTONU (Yönlendirme yapar) */}
                                                 <button
                                                     onClick={() => router.push(`/artworks/${artwork.artwork_id}`)}
                                                     className="bg-gray-900 text-white px-5 py-2 rounded-lg hover:bg-indigo-600 transition-colors duration-200 font-bold text-xs shadow-sm cursor-pointer"
@@ -278,19 +321,21 @@ export default function HomePage() {
                 )}
             </div>
 
-            {/* 3. KARŞILAŞTIRMA POP-UP'I (MODAL) */}
+            {/* KARŞILAŞTIRMA MODALI */}
             {isCompareModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-
-                        <div className="flex justify-between items-center p-6 border-b border-gray-100">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden relative">
+                        
+                        {/* BAŞLIK */}
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-white z-10 shrink-0">
                             <h3 className="text-xl font-bold text-gray-900">Eser Karşılaştırması</h3>
                             <button onClick={() => setIsCompareModalOpen(false)} className="text-gray-400 hover:text-red-500 text-2xl font-bold cursor-pointer">×</button>
                         </div>
 
-                        <div className="p-6 flex flex-col md:flex-row gap-6 justify-center">
+                        {/* İÇERİK */}
+                        <div className="p-6 flex flex-col md:flex-row gap-6 justify-center overflow-y-auto bg-stone-50/30 flex-1">
                             {compareList.map(item => (
-                                <div key={`comp-${item.artwork_id}`} className="flex-1 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                <div key={`comp-${item.artwork_id}`} className="flex-1 bg-white rounded-xl p-4 border border-gray-100 relative h-fit">
                                     <img src={item.image_url} className="w-full h-48 object-cover rounded-lg mb-4 shadow-sm" />
                                     <h4 className="font-bold text-lg text-gray-900 leading-tight">{item.title}</h4>
 
@@ -305,16 +350,26 @@ export default function HomePage() {
                                         </div>
                                         <div className="flex justify-between pt-2">
                                             <span className="text-gray-500">Fiyat</span>
-                                            <span className="font-black text-indigo-600 text-lg">{item.price.toLocaleString("tr-TR")} ₺</span>
+                                            <span className="font-black text-indigo-600 text-lg">{item.price ? item.price.toLocaleString("tr-TR") : "0"} ₺</span>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                         </div>
+
+                        {/* 💾 KAYDET BUTONU */}
+                        <div className="p-6 border-t border-gray-200 bg-gray-50 z-10 shrink-0 flex justify-between items-center">
+                            <p className="text-xs text-gray-500 max-w-xs font-medium">Karşılaştırma sonuçlarını kaydederek profilinizden inceleyebilirsiniz.</p>
+                            <button
+                                onClick={handleSaveComparison}
+                                className="px-6 py-3 bg-neutral-900 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg transition-all active:scale-95 flex items-center gap-2 cursor-pointer"
+                            >
+                                <span className="text-lg">💾</span> Sonuçları Kaydet
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
-
         </div>
     );
 }

@@ -164,3 +164,23 @@ def reset_password(request: schemas.ResetPasswordSchema, db: Session = Depends(g
         del reset_codes_db[request.email]
     
     return {"message": "Şifreniz başarıyla güncellendi."}
+
+@router.post("/comparisons", response_model=schemas.ComparisonResponse)
+def save_comparison(
+    comp_data: schemas.ComparisonCreate, 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(security.get_current_user)
+):
+    # Frontend'den gelen [1, 4, 5] şeklindeki listeyi veritabanı için "1,4,5" metnine çeviriyoruz
+    ids_string = ",".join(map(str, comp_data.item_ids))
+    
+    new_comp = models.SavedComparison(
+        user_id=current_user.user_id,
+        item_type=comp_data.item_type,
+        item_ids=ids_string
+    )
+    db.add(new_comp)
+    db.commit()
+    db.refresh(new_comp)
+    
+    return new_comp

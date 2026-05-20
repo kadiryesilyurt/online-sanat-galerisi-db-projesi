@@ -1,9 +1,11 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 from typing import Optional
-from datetime import date, time,datetime
+from datetime import date, time, datetime
 from decimal import Decimal
 
-# --- Kullanıcı Şemaları ---
+# ==========================================
+# --- KULLANICI & YETKİLENDİRME ŞEMALARI ---
+# ==========================================
 class UserCreate(BaseModel):
     first_name: str
     last_name: str
@@ -19,11 +21,66 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class UserUpdate(BaseModel):
+    first_name: str
+    last_name: str
+    email: EmailStr
+
+class PasswordChange(BaseModel):
+    old_password: str
+    new_password: str
+
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-# --- Eser Şemaları ---
+class ForgotPasswordSchema(BaseModel):
+    email: str
+
+class VerifyCodeSchema(BaseModel):
+    email: str
+    code: str
+
+class ResetPasswordSchema(BaseModel):
+    email: str
+    code: str
+    new_password: str 
+
+
+# ==========================================
+# --- SANATÇI ŞEMALARI ---
+# ==========================================
+class ArtistCreate(BaseModel):
+    name: str  
+    biography: str = "Biyografi eklenmedi." 
+
+class ArtistResponse(BaseModel):
+    artist_id: int
+    name: str  
+    biography: str
+    class Config:
+        from_attributes = True   
+
+
+# ==========================================
+# --- ESER ŞEMALARI ---
+# ==========================================
+class ArtworkCreate(BaseModel):
+    title: str
+    artist_id: int  
+    price: float
+    image_url: str
+    category: str
+    description: Optional[str] = None
+    stock_status: Optional[int] = 1
+
+class ArtworkUpdateSchema(BaseModel):
+    title: str
+    price: float
+    artist_id: int
+    image_url: str
+    description: Optional[str] = None
+
 class ArtworkResponse(BaseModel):
     artwork_id: int
     title: str
@@ -37,15 +94,10 @@ class ArtworkResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class ArtworkCreate(BaseModel):
-    artist_id: int
-    title: str
-    description: Optional[str] = None
-    price: float
-    image_url: Optional[str] = None
-    category: Optional[str] = None
 
-# --- Etkinlik Şemaları ---
+# ==========================================
+# --- ETKİNLİK ŞEMALARI ---
+# ==========================================
 class EventResponse(BaseModel):
     event_id: int
     title: str
@@ -57,13 +109,22 @@ class EventResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Rezervasyon Şemaları ---
+
+# ==========================================
+# --- REZERVASYON ŞEMALARI ---
+# ==========================================
 class ReservationCreate(BaseModel):
     user_id: int
     event_id: int
-    reservation_date: str # "2026-05-25" formatında
-    reservation_time: str # "14:00" formatında
+    reservation_date: str 
+    reservation_time: str 
     participant_count: int
+
+class ReservationUpdate(BaseModel):
+    participant_count: int
+    reservation_date: Optional[date] = None
+    reservation_time: Optional[str] = None
+    status: Optional[str] = None
 
 class ReservationResponse(BaseModel):
     reservation_id: int
@@ -74,48 +135,35 @@ class ReservationResponse(BaseModel):
     reservation_time: str
     status: str
     model_config = ConfigDict(from_attributes=True)
-class ReservationUpdate(BaseModel):
-    participant_count: int
-    reservation_date: Optional[date] = None
-    reservation_time: Optional[str] = None
-    status: Optional[str] = None
+
+
+# ==========================================
+# --- FAVORİ ŞEMALARI ---
+# ==========================================
 class FavoriteCreate(BaseModel):
     artwork_id: int
 
 class FavoriteResponse(BaseModel):
     user_id: int
-    id: int # veya artwork_id
+    id: int 
     artwork_id: int
     title: str
-    artist_name: str  # <--- Bunu ekle
-    price: float      # <--- Bunu ekle
-    image_url: str = None # <--- Varsa ekle
-
+    artist_name: str  
+    price: float      
+    image_url: str = None 
     class Config:
-        from_attributes = True # Pydantic v2 için (Eskisi orm_mode=True)
+        from_attributes = True 
 
-# --- Yorum Şemaları ---
-class ReviewCreate(BaseModel):
-    item_type: str 
-    item_id: int
-    rating: int
-    comment: str
 
-class ReviewResponse(BaseModel):
-    review_id: int
-    user_id: int
-    item_type: str
-    item_id: int
-    rating: int
-    comment: str
-    class Config:
-        from_attributes = True
-
+# ==========================================
+# --- SİPARİŞ ŞEMALARI ---
+# ==========================================
 class OrderCreate(BaseModel):
     item_type: str
     item_id: int
     payment_method: str
-    total_price: float        
+    total_price: float   
+     
 class OrderResponse(BaseModel):
     order_id: int
     user_id: int
@@ -124,63 +172,53 @@ class OrderResponse(BaseModel):
     status: str
     created_at: datetime
     image_url: str | None = None
-
-    # ORM objelerini (SQLAlchemy) Pydantic'e çevirmek için şart!
     model_config = ConfigDict(from_attributes=True)    
-class ArtworkCreate(BaseModel):
-    title: str
-    artist_id: int  # İlişkisel ID
-    price: float
-    image_url: str
-    category: str
-    description: Optional[str] = None
-    stock_status: Optional[int] = 1
-class ArtistResponse(BaseModel):
-    artist_id: int
-    name: str  
-    biography: str
 
+
+# ==========================================
+# --- YORUM VE YANIT ŞEMALARI ---
+# ==========================================
+class ReviewCreate(BaseModel):
+    item_type: str 
+    item_id: int
+    rating: int
+    comment: str
+
+class AdminReplyCreate(BaseModel):
+    reply: str
+
+class ReviewResponse(BaseModel):
+    review_id: int
+    user_id: int
+    item_type: str
+    item_id: int
+    rating: int
+    comment: str
+    user_name: Optional[str] = None
+    created_at: datetime
+    helpful_votes: int = 0
+    admin_reply: Optional[str] = None  
     class Config:
-        from_attributes = True   
-class ArtistCreate(BaseModel):
-    name: str  
-    biography: str = "Biyografi eklenmedi." 
-class UserUpdate(BaseModel):
-    first_name: str
-    last_name: str
-    email: EmailStr
+        from_attributes = True
 
-class PasswordChange(BaseModel):
-    old_password: str
-    new_password: str
-class ArtworkUpdateSchema(BaseModel):
-    title: str
-    price: float
-    artist_id: int
-    image_url: str
-    description: Optional[str] = None
-class ForgotPasswordSchema(BaseModel):
-    email: str
+class ReviewStatsResponse(BaseModel):
+    average_rating: float
+    total_reviews: int
+    class Config:
+        from_attributes = True
 
-class VerifyCodeSchema(BaseModel):
-    email: str
-    code: str
 
-class ResetPasswordSchema(BaseModel):
-    email: str
-    code: str
-    new_password: str   
-# Kullanıcı yeni talep açarken kullanılacak
+# ==========================================
+# --- DESTEK TALEBİ / MESAJ ŞEMALARI ---
+# ==========================================
 class TicketCreate(BaseModel):
     subject: str
     message: str
 
-# Admin talebi yanıtlarken/güncellerken kullanılacak
 class TicketUpdate(BaseModel):
     status: str
     admin_response: Optional[str] = None
 
-# Frontend'e veriyi yollarken kullanılacak kalıp
 class TicketResponse(BaseModel):
     ticket_id: int
     user_id: int
@@ -189,15 +227,12 @@ class TicketResponse(BaseModel):
     admin_response: Optional[str]
     status: str
     created_at: datetime
-
     class Config:
         from_attributes = True    
-# schemas.py dosyasının en altına ekle:
 
 class MessageCreate(BaseModel):
     message: str
 
-# Eğer get_messages için de bir şema istersen (öneririm), şunu da ekle:
 class MessageResponse(BaseModel):
     id: int
     ticket_id: int
@@ -205,6 +240,18 @@ class MessageResponse(BaseModel):
     is_admin: bool
     message: str
     created_at: datetime
-
     class Config:
-        from_attributes = True        
+        from_attributes = True
+
+class ComparisonCreate(BaseModel):
+    item_type: str # 'artwork' veya 'event'
+    item_ids: list[int] # [1, 4, 5] şeklinde gelecek
+
+class ComparisonResponse(BaseModel):
+    comparison_id: int
+    user_id: int
+    item_type: str
+    item_ids: str 
+    created_at: datetime
+    class Config:
+        from_attributes = True

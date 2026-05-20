@@ -27,7 +27,13 @@ def get_artworks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 
 @router.get("/{artwork_id}", response_model=schemas.ArtworkResponse)
 def get_artwork(artwork_id: int, db: Session = Depends(get_db)):
-    # Tekil eser çekerken de sanatçı adını ekliyoruz ki detay sayfasında hata olmasın
+    # 1. GÖRÜNTÜLENME SAYISINI 1 ARTIR (Sadece detaya girildiğinde)
+    artwork_to_update = db.query(models.Artwork).filter(models.Artwork.artwork_id == artwork_id).first()
+    if artwork_to_update:
+        artwork_to_update.view_count = (artwork_to_update.view_count or 0) + 1
+        db.commit()
+
+    # 2. ESERİ VE SANATÇI BİLGİSİNİ GETİR (Orijinal kodun aynısı)
     artwork = db.query(
         models.Artwork.artwork_id,
         models.Artwork.title,
@@ -79,14 +85,22 @@ def create_artwork(
     db.refresh(new_artwork)
     return new_artwork
 
-# 🗑️ ESER SİLME (Sadece Admin)
+# 🗑️ ESER SİLME (Geliştirilmiş, Kurşun Geçirmez Admin Sürümü)
 @router.delete("/{artwork_id}")
 def delete_artwork(
-    artwork_id: int, 
+    artwork_id: str, # String olarak alıyoruz ki gelen format ne olursa olsun çökmesin
     db: Session = Depends(get_db),
     admin_user: models.User = Depends(security.get_admin_user)
 ):
-    artwork = db.query(models.Artwork).filter(models.Artwork.id == artwork_id).first()
+    try:
+        # Gelen veri metin içeriyorsa (Örn: "ART-5") sadece sondaki sayıyı ayıklıyoruz
+        art_id = int(str(artwork_id).split("-")[-1])
+    except:
+        raise HTTPException(status_code=400, detail="Geçersiz eser ID formatı")
+
+    # Veritabanındaki gerçek sütun adın olan 'artwork_id' ile filtreleme yapıyoruz kral:
+    artwork = db.query(models.Artwork).filter(models.Artwork.artwork_id == art_id).first()
+    
     if not artwork:
         raise HTTPException(status_code=404, detail="Eser bulunamadı")
     
@@ -112,3 +126,19 @@ def update_artwork(artwork_id: int, artwork: ArtworkUpdateSchema, db: Session = 
     db.commit()
     db.refresh(db_artwork)
     return db_artwork
+
+
+# 🔥 YENİ: ESER İSTATİSTİKLERİ (Beğeni ve Görüntülenme)
+@router.get("/{artwork_id}/stats")
+def get_artwork_extra_stats(artwork_id: int, db: Session = Depends(get_db)):
+    # Görüntülenme sayısını al
+    artwork = db.query(models.Artwork.view_count).filter(models.Artwork.artwork_id == artwork_id).first()
+    view_count = artwork.view_count if artwork and artwork.view_count else 0
+    
+    # Toplam Beğeni (Favori) sayısını al
+    like_count = db.query(models.Favorite).filter(models.Favorite.artwork_id == artwork_id).count()
+    
+    return {
+        "view_count": view_count,
+        "like_count": like_count
+    }

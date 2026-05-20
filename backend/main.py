@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import artworks, events, reservations, users, favorites, reviews, orders, artists, support
+from routers import artworks, events, reservations, users, favorites, reviews, orders, artists, support, comparisons
 import models
 from database import engine
 
@@ -24,9 +24,10 @@ app.include_router(artworks.router, prefix="/api")
 app.include_router(events.router, prefix="/api")
 app.include_router(reservations.router, prefix="/api/panel")
 app.include_router(favorites.router, prefix="/api/panel")
-app.include_router(reviews.router, prefix="/api")
+app.include_router(reviews.router, prefix="/api/reviews", tags=["Reviews"])
 app.include_router(orders.router, prefix="/api")
 app.include_router(artists.router)
+app.include_router(comparisons.router, prefix="/api/panel")
 app.include_router(support.router, prefix="/api")
 @app.get("/")
 def read_root():

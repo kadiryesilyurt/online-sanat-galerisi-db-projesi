@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, DECIMAL, ForeignKey, TIMESTAMP, Date, Time, DateTime,Float, Boolean, func
+from sqlalchemy import Column, Integer, String, Text, DECIMAL, ForeignKey, TIMESTAMP, Date, Time, DateTime,Float, Boolean, func, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -30,6 +30,7 @@ class Artwork(Base):
     image_url = Column(String(255))
     category = Column(String(50))
     stock_status = Column(Integer, default=1)
+    view_count = Column(Integer, default=0)
     artist = relationship("Artist", back_populates="artworks")
 
 class Event(Base):
@@ -66,13 +67,17 @@ class Favorite(Base):
 
 class Review(Base):
     __tablename__ = "reviews"
+    
     review_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.user_id"))
-    item_type = Column(String(20), nullable=False)
-    item_id = Column(Integer, nullable=False)
+    item_type = Column(String) 
+    item_id = Column(Integer)
     rating = Column(Integer)
     comment = Column(Text)
-    created_at = Column(TIMESTAMP, server_default=func.now())
+    helpful_votes = Column(Integer, default=0)
+    admin_reply = Column(Text, nullable=True)           # DBeaver'da var, ekledik!
+    is_verified_purchase = Column(Boolean, default=False) # DBeaver'da var, ekledik!
+    created_at = Column(DateTime, default=func.now())
 # models.py
 class Order(Base):
     __tablename__ = "orders"
@@ -85,6 +90,17 @@ class Order(Base):
     created_at = Column(DateTime, default=func.now())
     image_url = Column(String, nullable=True)
     payment_method = Column(String, nullable=True)
+
+
+class ReviewVote(Base):
+    __tablename__ = "review_votes"
+    
+    vote_id = Column(Integer, primary_key=True, index=True)
+    review_id = Column(Integer, ForeignKey("reviews.review_id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"))
+    
+    # Bir kullanıcı bir yoruma sadece bir kez oy verebilir (Unique constraint)
+    __table_args__ = (UniqueConstraint('review_id', 'user_id', name='_user_review_vote_uc'),)
 class SupportTicket(Base):
     __tablename__ = "support_tickets"
 
@@ -106,3 +122,12 @@ class SupportMessage(Base):
     is_admin = Column(Boolean, default=False) # Admin mi attı?
     message = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class SavedComparison(Base):
+    __tablename__ = "saved_comparisons"
+    
+    comparison_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"))
+    item_type = Column(String(50))  # 'artwork' veya 'event' olacak
+    item_ids = Column(String(255))  # Karşılaştırılan ID'leri virgülle tutacağız (Örn: "1,4,5")
+    created_at = Column(DateTime, default=func.now())

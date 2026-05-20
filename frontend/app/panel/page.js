@@ -55,6 +55,75 @@ const ReservationCard = ({ rez, onCancel, onEdit }) => (
     </div>
 );
 
+// 🔥 YENİ EKLENEN BİLEŞEN: ID'leri alıp backend'den resim ve isimleri çeker
+const ComparisonDetailFetcher = ({ type, idsString }) => {
+    const [details, setDetails] = useState([]);
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            if (!idsString) return;
+            const ids = idsString.split(",");
+            const fetchedItems = [];
+
+            for (let id of ids) {
+                try {
+                    if (!id.trim()) continue;
+                    const endpoint = `${backendUrl}/api/${type === 'event' ? 'events' : 'artworks'}/${id}`;
+                    const res = await fetch(endpoint);
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        fetchedItems.push(data);
+                    }
+                } catch (err) { console.error("Detay çekilemedi:", err); }
+            }
+            setDetails(fetchedItems);
+        };
+        fetchDetails();
+    }, [idsString, type, backendUrl]);
+
+    if (details.length === 0) return <div className="p-2 text-xs text-gray-400 italic">Detaylar yükleniyor...</div>;
+
+    return (
+        <div className="flex flex-wrap gap-3 mt-3 w-full">
+            {details.map((item, idx) => {
+                // 1. Resim yolunu düzelt
+                let imageUrl = item.image_url;
+                if (imageUrl && !imageUrl.startsWith('http')) {
+                    imageUrl = `${backendUrl}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`;
+                }
+
+                // 🔥 2. ETKİNLİKLER İÇİN YEDEK RESİM (Veritabanında resim yoksa)
+                if (!imageUrl && type === 'event') {
+                    imageUrl = "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?q=80&w=800";
+                }
+
+                return (
+                    <div key={idx} className="flex items-center gap-3 bg-white p-2 rounded-lg border border-stone-200 w-64 shadow-sm">
+                        <div className="w-12 h-12 shrink-0 rounded overflow-hidden bg-stone-100 border">
+                            <img
+                                src={imageUrl || "https://placehold.co/48x48?text=Sanat"}
+                                alt={item.title || "Öğe"}
+                                className="w-full h-full object-cover"
+                                onError={(e) => e.target.src = "https://placehold.co/48x48?text=Hata"}
+                            />
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                            <span className="text-xs font-bold text-gray-900 truncate" title={item.title || "Bilinmiyor"}>
+                                {item.title || "Bilinmiyor"}
+                            </span>
+                            <span className="text-[11px] font-black text-indigo-600 mt-0.5">
+                                {item.price ? `${Number(item.price).toLocaleString("tr-TR")} ₺` : "Ücretsiz"}
+                            </span>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+};
+
 const AccountSettings = () => {
     const [userData, setUserData] = useState({ first_name: "", last_name: "", email: "" });
     const [isEditing, setIsEditing] = useState(false);
@@ -244,6 +313,7 @@ const EditReservationForm = ({ rez, onSave, onCancel }) => {
 
 
 export default function UserPanelPage() {
+    const [viewingComparison, setViewingComparison] = useState(null);
     const [activeTicketId, setActiveTicketId] = useState(null);
     const [selectedOrder, setSelectedOrder] = useState(null);
     const router = useRouter(); // Güvenlik yönlendirmesi için
@@ -256,6 +326,8 @@ export default function UserPanelPage() {
     const [favorites, setFavorites] = useState([]);
     const [tickets, setTickets] = useState([]);
     const [editingRez, setEditingRez] = useState(null);
+
+    const [savedComparisons, setSavedComparisons] = useState([]);
 
     // 🚀 TICKET İÇİN YENİ EKLENEN STATE'LER 🚀
     const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
@@ -311,6 +383,41 @@ export default function UserPanelPage() {
         }
     };
 
+    // ⚖️ YENİ: KARŞILAŞTIRMALARI ÇEKEN FONKSİYON
+    const fetchComparisons = async () => {
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${backendUrl}/api/panel/comparisons`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setSavedComparisons(data);
+            }
+        } catch (err) {
+            console.error("Karşılaştırmalar çekilemedi:", err);
+        }
+    };
+
+    // ⚖️ YENİ: KARŞILAŞTIRMA SİLME FONKSİYONU
+    const handleDeleteComparison = async (compId) => {
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${backendUrl}/api/panel/comparisons/${compId}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (response.ok) {
+                toast.success("Kayıtlı karşılaştırma silindi.", { icon: '🗑️' });
+                setSavedComparisons(savedComparisons.filter(c => c.comparison_id !== compId));
+            } else {
+                toast.error("Silinemedi.");
+            }
+        } catch (err) {
+            toast.error("Bağlantı hatası.");
+        }
+    };
+
     useEffect(() => {
         const token = localStorage.getItem("token");
 
@@ -325,7 +432,9 @@ export default function UserPanelPage() {
         // Tüm verileri çek
         fetchOrders();
         fetchReservations();
-        fetchTickets(); // 🚀 Sayfa yüklenince ticketları da çek
+        fetchTickets();  // 🚀 Sayfa yüklenince ticketları da çek
+        fetchComparisons();
+
 
         // 3. Favorileri Çek
         fetch(`${backendUrl}/api/panel/favorites`, { headers: authHeaders })
@@ -626,6 +735,10 @@ export default function UserPanelPage() {
                     >
                         ❤️ Favori Eserlerim
                     </button>
+
+                    <button onClick={() => setActiveTab("comparisons")} className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${activeTab === "comparisons" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}>⚖️ Karşılaştırmalarım</button>
+
+
                     <button
                         onClick={() => setActiveTab("support")}
                         className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors cursor-pointer ${activeTab === "support" ? "bg-indigo-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}
@@ -746,6 +859,52 @@ export default function UserPanelPage() {
                                 </div>
                             ))}
                         </div>
+                    )}
+
+                    {/* ⚖️ YENİ: KARŞILAŞTIRMALARIM SEKME İÇERİĞİ */}
+                    {activeTab === "comparisons" && (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <h2 className="text-xl font-bold text-gray-800 border-b pb-3 mb-4">Kayıtlı Karşılaştırmalarım</h2>
+                            {savedComparisons.length === 0 && <p className="text-sm text-gray-500">Henüz kaydedilmiş bir karşılaştırmanız bulunmuyor.</p>}
+
+                            <div className="grid grid-cols-1 gap-4">
+                                {savedComparisons.map(comp => (
+                                    <div
+                                        key={comp.comparison_id}
+                                        onClick={() => setViewingComparison(comp)} // 🔥 TIKLAMA TETİKLEYİCİSİ BURADA
+                                        className="p-5 border border-stone-200 bg-stone-50/50 rounded-xl flex flex-col hover:shadow-md transition-all cursor-pointer hover:border-indigo-300"
+                                    >
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <span className={`text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider ${comp.item_type === 'event' ? 'bg-teal-100 text-teal-700 border border-teal-200' : 'bg-indigo-100 text-indigo-700 border border-indigo-200'}`}>
+                                                    {comp.item_type === 'event' ? '🗓️ Etkinlik' : '🖼️ Eser'} Karşılaştırması
+                                                </span>
+                                                <span className="text-xs text-gray-400 block mt-2 font-medium">Kaydedilme Tarihi: {new Date(comp.created_at).toLocaleString('tr-TR')}</span>
+                                            </div>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation(); // 🔥 Sil'e basınca modal açılmasın!
+                                                    handleDeleteComparison(comp.comparison_id);
+                                                }}
+                                                className="bg-white text-red-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-colors border border-red-200 shadow-sm"
+                                            >
+                                                Kayıtlardan Sil
+                                            </button>
+                                        </div>
+
+                                        <ComparisonDetailFetcher type={comp.item_type} idsString={comp.item_ids} />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 🔥 MODAL TETİKLEYİCİSİ (Bunu sekmenin hemen altına veya UserPanelPage'in en sonuna ekle) */}
+                    {viewingComparison && (
+                        <SavedComparisonModal
+                            comparison={viewingComparison}
+                            onClose={() => setViewingComparison(null)}
+                        />
                     )}
                     {/* Rezervasyonlar Sekmesi */}
                     {activeTab === "reservations" && (
@@ -1055,3 +1214,98 @@ function ChatWindow({ ticketId, onClose, isAdminView }) {
         </div>
     );
 }
+const SavedComparisonModal = ({ comparison, onClose }) => {
+    const [details, setDetails] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000";
+
+    useEffect(() => {
+        const fetchDetails = async () => {
+            if (!comparison?.item_ids) return;
+            const ids = comparison.item_ids.split(",");
+            const fetchedItems = [];
+            for (let id of ids) {
+                try {
+                    const endpoint = `${backendUrl}/api/${comparison.item_type === 'event' ? 'events' : 'artworks'}/${id}`;
+                    const res = await fetch(endpoint);
+                    if (res.ok) fetchedItems.push(await res.json());
+                } catch (err) { console.error(err); }
+            }
+            setDetails(fetchedItems);
+            setLoading(false);
+        };
+        fetchDetails();
+    }, [comparison, backendUrl]);
+
+    // Resim yolunu güvenli hale getiren yardımcı
+    const getImageUrl = (item) => {
+        if (item.image_url) {
+            return item.image_url.startsWith('http') ? item.image_url : `${backendUrl}${item.image_url.startsWith('/') ? '' : '/'}${item.image_url}`;
+        }
+        return comparison.item_type === 'event'
+            ? "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?q=80&w=800"
+            : "https://placehold.co/400x300?text=Sanat";
+    };
+
+    return (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+
+                {/* Modal Başlığı */}
+                <div className="flex justify-between items-center p-6 border-b bg-stone-50 shrink-0">
+                    <h3 className="text-xl font-black text-gray-900">
+                        {comparison.item_type === 'event' ? '🗓️ Etkinlik Karşılaştırması' : '🖼️ Eser Karşılaştırması'}
+                    </h3>
+                    <button onClick={onClose} className="text-3xl text-gray-400 hover:text-red-500 cursor-pointer">&times;</button>
+                </div>
+
+                {/* Modal İçeriği (Grid Yapısı) */}
+                <div className="p-6 overflow-y-auto">
+                    {loading ? <p className="text-center">Yükleniyor...</p> : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 justify-center">
+                            {details.map((item, idx) => (
+                                <div key={idx} className="bg-white border border-stone-100 p-5 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
+                                    <img src={getImageUrl(item)} className="w-full h-48 object-cover rounded-xl mb-4" alt={item.title} />
+                                    <h4 className="font-black text-lg text-gray-900 mb-4">{item.title}</h4>
+
+                                    {/* 🔥 AYRIM NOKTASI: KOŞULLU GÖSTERİM 🔥 */}
+                                    {comparison.item_type === 'event' ? (
+                                        <div className="space-y-3 text-sm">
+                                            <div className="flex justify-between bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                                                <span className="text-stone-500 font-medium">Tarih</span>
+                                                <span className="font-bold text-gray-800">{item.event_date || item.date}</span>
+                                            </div>
+                                            <div className="flex justify-between bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                                                <span className="text-stone-500 font-medium">Kontenjan</span>
+                                                <span className="font-bold text-gray-800">{item.quota || item.participant_count} Kişi</span>
+                                            </div>
+                                            <div className="flex justify-between bg-teal-50/50 p-2.5 rounded-lg border border-teal-100">
+                                                <span className="text-teal-700 font-bold">Katılım Bedeli</span>
+                                                <span className="font-black text-teal-600">{item.price?.toLocaleString("tr-TR")} ₺</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3 text-sm">
+                                            <div className="flex justify-between bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                                                <span className="text-stone-500 font-medium">Sanatçı</span>
+                                                <span className="font-bold text-gray-800">{item.artist_name || "Bilinmiyor"}</span>
+                                            </div>
+                                            <div className="flex justify-between bg-stone-50 p-2.5 rounded-lg border border-stone-100">
+                                                <span className="text-stone-500 font-medium">Kategori</span>
+                                                <span className="font-bold text-gray-800">{item.category || "Tablo"}</span>
+                                            </div>
+                                            <div className="flex justify-between bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-100">
+                                                <span className="text-indigo-700 font-bold">Fiyat</span>
+                                                <span className="font-black text-indigo-600 text-lg">{item.price?.toLocaleString("tr-TR")} ₺</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
